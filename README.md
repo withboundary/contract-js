@@ -232,6 +232,7 @@ npm install llm-contract zod
 - [API reference](./API.md) — full function signatures and options
 - [Examples](./examples) — runnable demos (extraction, moderation, classification, scoring, fallback, primitives)
 - [EXAMPLES.md](./EXAMPLES.md) — detailed before/after comparisons
+- Integrations — [Langfuse](./examples/integration-langfuse.ts), [OpenTelemetry](./examples/integration-otel.ts), [Vercel AI SDK](./examples/integration-vercel-ai.ts)
 
 ## Status
 

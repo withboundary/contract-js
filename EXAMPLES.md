@@ -510,3 +510,94 @@ Every example follows the same structure:
 ```
 
 The library owns the contract. You own the call.
+
+---
+
+## Integrations
+
+`llm-contract` works with any LLM provider or observability tool. No adapters needed — wire `onAttempt` into your existing stack.
+
+### Langfuse
+
+Trace each enforce call and every attempt as a Langfuse observation. See which invariants fire, how often, and whether prompt changes reduce them.
+
+```typescript
+import { startActiveObservation, startObservation } from "@langfuse/tracing";
+
+const result = await startActiveObservation("enforce-sentiment", async () => {
+  return enforce(schema, async (attempt) => {
+    const gen = startObservation(
+      `llm-call-${attempt.number}`,
+      { model: "gpt-4o-mini", input: attempt.prompt },
+      { asType: "generation" },
+    );
+    const res = await openai.chat.completions.create({ /* ... */ });
+    gen.update({ output: res.choices[0].message.content }).end();
+    return res.choices[0].message.content;
+  }, {
+    onAttempt: (event) => {
+      const span = startObservation(`attempt-${event.number}`, {
+        output: { ok: event.ok, category: event.category, issues: event.issues },
+      });
+      span.end();
+    },
+  });
+});
+```
+
+See [`examples/integration-langfuse.ts`](./examples/integration-langfuse.ts) for the full example.
+
+### OpenTelemetry
+
+Works with any OTLP backend — Datadog, Grafana, Honeycomb, Jaeger. Each attempt becomes a span with attributes you can query and dashboard.
+
+```typescript
+import { trace } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("llm-contract");
+
+const result = await tracer.startActiveSpan("enforce", async (rootSpan) => {
+  const res = await enforce(schema, runFn, {
+    onAttempt: (event) => {
+      const span = tracer.startSpan(`attempt-${event.number}`);
+      span.setAttribute("attempt.ok", event.ok);
+      span.setAttribute("attempt.category", event.category ?? "none");
+      span.setAttribute("attempt.issues", event.issues.join("; "));
+      span.end();
+    },
+  });
+  rootSpan.setAttribute("result.ok", res.ok);
+  rootSpan.end();
+  return res;
+});
+```
+
+See [`examples/integration-otel.ts`](./examples/integration-otel.ts) for the full example.
+
+### Vercel AI SDK
+
+Use `enforce` with `generateText` to get invariants and targeted repair on top of your existing Vercel AI SDK setup. This replaces `generateObject` when you need cross-field validation.
+
+```typescript
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const result = await enforce(schema, async (attempt) => {
+  const { text } = await generateText({
+    model: openai("gpt-4o-mini"),
+    messages: [
+      { role: "system", content: attempt.prompt },
+      { role: "user", content: input },
+      ...attempt.fixes,
+    ],
+  });
+  return text;
+}, {
+  invariants: [
+    (d) => Math.abs(d.subtotal + d.tax - d.total) < 0.01
+      || `subtotal + tax != total`,
+  ],
+});
+```
+
+See [`examples/integration-vercel-ai.ts`](./examples/integration-vercel-ai.ts) for the full example and a comparison with `generateObject`.
