@@ -1,0 +1,44 @@
+{
+  "name": "llm-contract",
+  "version": "0.1.0",
+  "description": "Typed contracts for LLM calls. Validate, repair, retry.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "llm",
+    "structured-output",
+    "zod",
+    "validation",
+    "openai",
+    "anthropic",
+    "contract"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

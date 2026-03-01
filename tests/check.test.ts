@@ -1,0 +1,155 @@
+import { describe, it, expect } from "vitest";
+import { z } from "zod";
+import { check } from "../src/check.js";
+
+describe("check", () => {
+  const Schema = z.object({
+    name: z.string(),
+    age: z.number().min(0).max(150),
+  });
+
+  describe("valid data", () => {
+    it("returns success for valid data", () => {
+      const result = check({ name: "Alice", age: 30 }, Schema);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.data).toEqual({ name: "Alice", age: 30 });
+      }
+    });
+
+    it("strips extra fields via Zod", () => {
+      const result = check(
+        { name: "Alice", age: 30, extra: "field" },
+        Schema,
+      );
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  describe("invalid data", () => {
+    it("fails when a required field is missing", () => {
+      const result = check({ name: "Alice" }, Schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues.length).toBeGreaterThan(0);
+        expect(result.error.attempts[0].issues[0]).toContain("age");
+      }
+    });
+
+    it("fails when a field has wrong type", () => {
+      const result = check({ name: 123, age: 30 }, Schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues[0]).toContain("name");
+      }
+    });
+
+    it("fails when a number is out of range", () => {
+      const result = check({ name: "Alice", age: -5 }, Schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues[0]).toContain("age");
+      }
+    });
+
+    it("collects multiple issues", () => {
+      const result = check({ name: 123 }, Schema);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues.length).toBe(2);
+      }
+    });
+  });
+
+  describe("nested schemas", () => {
+    const NestedSchema = z.object({
+      user: z.object({
+        name: z.string(),
+        address: z.object({
+          city: z.string(),
+        }),
+      }),
+    });
+
+    it("validates nested objects", () => {
+      const result = check(
+        { user: { name: "Alice", address: { city: "NYC" } } },
+        NestedSchema,
+      );
+      expect(result.ok).toBe(true);
+    });
+
+    it("reports path for nested failures", () => {
+      const result = check(
+        { user: { name: "Alice", address: { city: 123 } } },
+        NestedSchema,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues[0]).toContain(
+          "user.address.city",
+        );
+      }
+    });
+  });
+
+  describe("enum schemas", () => {
+    const EnumSchema = z.object({
+      status: z.enum(["active", "inactive", "pending"]),
+    });
+
+    it("passes for valid enum value", () => {
+      const result = check({ status: "active" }, EnumSchema);
+      expect(result.ok).toBe(true);
+    });
+
+    it("fails for invalid enum value", () => {
+      const result = check({ status: "unknown" }, EnumSchema);
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe("invariants", () => {
+    it("passes when invariants pass", () => {
+      const result = check({ name: "Alice", age: 30 }, Schema, [
+        (data) => data.age >= 18 || "must be 18 or older",
+      ]);
+      expect(result.ok).toBe(true);
+    });
+
+    it("fails when an invariant fails", () => {
+      const result = check({ name: "Alice", age: 10 }, Schema, [
+        (data) => data.age >= 18 || "must be 18 or older",
+      ]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues[0]).toBe(
+          "must be 18 or older",
+        );
+      }
+    });
+
+    it("collects multiple invariant failures", () => {
+      const result = check({ name: "Alice", age: 10 }, Schema, [
+        (data) => data.age >= 18 || "must be 18 or older",
+        (data) => data.name.length > 10 || "name too short",
+      ]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].issues).toHaveLength(2);
+      }
+    });
+
+    it("does not run invariants when schema validation fails", () => {
+      let invariantCalled = false;
+      const result = check({ name: 123 }, Schema, [
+        () => {
+          invariantCalled = true;
+          return true;
+        },
+      ]);
+      expect(result.ok).toBe(false);
+      expect(invariantCalled).toBe(false);
+    });
+  });
+});
