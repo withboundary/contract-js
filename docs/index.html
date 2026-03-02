@@ -141,67 +141,101 @@
   <section class="relative max-w-6xl mx-auto px-6 pt-28 pb-20 overflow-hidden">
     <div class="hero-glow"></div>
     <div class="relative z-10">
-      <span class="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full mb-8 gradient-border"><span class="gradient-text">Preview release</span></span>
-      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6">
-        <span class="gradient-text">Turn one error into a permanent<br>improvement</span> <span class="text-white">— automatically.</span>
-      </h1>
-      <p class="text-lg text-zinc-400 max-w-2xl mb-12 leading-relaxed">
-        See a bad LLM output. Write one rule. From now on, that error is caught, the model gets targeted feedback, and it self-corrects — on every future call, without touching your prompt.
-      </p>
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-10 items-start">
+        <div>
+          <span class="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full mb-8 gradient-border"><span class="gradient-text">Preview release</span></span>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6">
+            <span class="gradient-text">Turn one error into a permanent<br>improvement</span> <span class="text-white">— automatically.</span>
+          </h1>
+          <p class="text-lg text-zinc-400 max-w-2xl mb-12 leading-relaxed">
+            See a bad LLM output. Write one rule. From now on, that error is caught, the model gets targeted feedback, and it self-corrects — on every future call, without touching your prompt.
+          </p>
 
-      <!-- Animated timeline -->
-      <div class="hero-timeline grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-2 mb-12 max-w-3xl">
-        <div class="hero-step">
-          <div class="glass rounded-xl px-4 py-3 border-red-500/20" style="border-color: rgba(239,68,68,0.2)">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-red-400">Error spotted</span>
+          <!-- Animated timeline -->
+          <div class="hero-timeline grid grid-cols-1 sm:grid-cols-5 gap-3 sm:gap-2 mb-12 max-w-3xl">
+            <div class="hero-step">
+              <div class="glass rounded-xl px-4 py-3 border-red-500/20" style="border-color: rgba(239,68,68,0.2)">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+                  <span class="text-[10px] font-semibold uppercase tracking-widest text-red-400">Error spotted</span>
+                </div>
+                <p class="font-mono text-xs text-zinc-400">tier: <span class="text-red-400">"hot"</span>, score: <span class="text-white">25</span></p>
+              </div>
             </div>
-            <p class="font-mono text-xs text-zinc-400">tier: <span class="text-red-400">"hot"</span>, score: <span class="text-white">25</span></p>
-          </div>
-        </div>
-        <div class="hero-step">
-          <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(167,139,250,0.2)">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-2 h-2 rounded-full bg-accent flex-shrink-0"></span>
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-accent">Add 1 rule</span>
+            <div class="hero-step">
+              <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(167,139,250,0.2)">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-accent flex-shrink-0"></span>
+                  <span class="text-[10px] font-semibold uppercase tracking-widest text-accent">Add 1 rule</span>
+                </div>
+                <p class="font-mono text-[11px] text-accent/80 leading-relaxed">score &gt;= 70 ||<br>tier !== "hot"</p>
+              </div>
             </div>
-            <p class="font-mono text-[11px] text-accent/80 leading-relaxed">score &gt;= 70 ||<br>tier !== "hot"</p>
-          </div>
-        </div>
-        <div class="hero-step">
-          <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.2)">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-green-400">Next call</span>
+            <div class="hero-step">
+              <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.2)">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
+                  <span class="text-[10px] font-semibold uppercase tracking-widest text-green-400">Next call</span>
+                </div>
+                <p class="text-xs text-green-400/80">Caught. Repaired. Automatically.</p>
+              </div>
             </div>
-            <p class="text-xs text-green-400/80">Caught. Repaired. Automatically.</p>
-          </div>
-        </div>
-        <div class="hero-step">
-          <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.2)">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-green-400">Every call after</span>
+            <div class="hero-step">
+              <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.2)">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
+                  <span class="text-[10px] font-semibold uppercase tracking-widest text-green-400">Every call after</span>
+                </div>
+                <p class="text-xs text-green-400/80">Same error. Always fixed.</p>
+              </div>
             </div>
-            <p class="text-xs text-green-400/80">Same error. Always fixed.</p>
-          </div>
-        </div>
-        <div class="hero-step">
-          <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.3)">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="w-2 h-2 rounded-full bg-green-300 flex-shrink-0"></span>
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-green-300">Permanent</span>
+            <div class="hero-step">
+              <div class="glass rounded-xl px-4 py-3" style="border-color: rgba(74,222,128,0.3)">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-green-300 flex-shrink-0"></span>
+                  <span class="text-[10px] font-semibold uppercase tracking-widest text-green-300">Permanent</span>
+                </div>
+                <p class="text-xs text-green-300/80">System stronger. Add more rules.</p>
+              </div>
             </div>
-            <p class="text-xs text-green-300/80">System stronger. Add more rules.</p>
           </div>
-        </div>
-      </div>
 
-      <div class="flex items-center gap-4 mb-4">
-        <code class="gradient-border px-5 py-2.5 text-sm font-mono text-zinc-300">npm install llm-contract zod</code>
+          <div class="flex items-center gap-4 mb-4">
+            <code class="gradient-border px-5 py-2.5 text-sm font-mono text-zinc-300">npm install llm-contract zod</code>
+          </div>
+          <p class="text-sm text-zinc-500">No framework. No provider lock-in. One dependency.</p>
+        </div>
+
+        <aside class="glass rounded-xl p-5 lg:mt-14">
+          <p class="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">Benchmark Snapshot</p>
+          <p class="text-sm text-white font-semibold mb-4">BANKING77 (n=50) &middot; Claude Sonnet</p>
+          <div class="space-y-2 text-sm">
+            <div class="rounded-lg border border-white/[0.06] bg-bg/50 px-3 py-2">
+              <div class="flex items-center justify-between text-zinc-400">
+                <span class="text-xs font-mono">A_FROZEN</span>
+                <span class="text-xs">42% acc &middot; 62% pass</span>
+              </div>
+              <p class="text-[11px] text-zinc-600 mt-1">$0.052 cost</p>
+            </div>
+            <div class="rounded-lg border border-white/[0.06] bg-bg/50 px-3 py-2">
+              <div class="flex items-center justify-between text-zinc-400">
+                <span class="text-xs font-mono">B_PROMPT_ENGINEERED</span>
+                <span class="text-xs">40% acc &middot; 56% pass</span>
+              </div>
+              <p class="text-[11px] text-zinc-600 mt-1">$0.065 cost</p>
+            </div>
+            <div class="rounded-lg border border-green-500/30 bg-green-500/[0.08] px-3 py-2">
+              <div class="flex items-center justify-between text-green-300">
+                <span class="text-xs font-mono font-semibold">C_LLM_CONTRACT</span>
+                <span class="text-xs font-semibold">64% acc &middot; 82% pass</span>
+              </div>
+              <p class="text-[11px] text-green-400/80 mt-1">$0.095 cost</p>
+            </div>
+          </div>
+          <p class="text-xs text-accent mt-4 font-medium">+22 pts accuracy, +20 pts pass rate vs frozen</p>
+          <p class="text-[11px] text-zinc-600 mt-2 leading-relaxed">Early benchmark result. Larger multi-seed and larger-scale evaluations are planned.</p>
+        </aside>
       </div>
-      <p class="text-sm text-zinc-500">No framework. No provider lock-in. One dependency.</p>
     </div>
   </section>
 
