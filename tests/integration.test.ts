@@ -1,11 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { enforce } from "../src/enforce.js";
-import { clean } from "../src/clean.js";
-import { check } from "../src/check.js";
-import { fix } from "../src/fix.js";
-import { select } from "../src/select.js";
-import type { AttemptContext, Message } from "../src/types.js";
+import { clean, enforce, repair, select, verify } from "../src/index.js";
+import type { AttemptContext, Message } from "../src/index.js";
 
 function asMessages(result: Message[] | false): Message[] {
   if (result === false) {
@@ -91,7 +87,7 @@ Let me know if you need anything else!`;
         return '{"subtotal": 100, "tax": 10, "total": 90}';
       },
       {
-        maxAttempts: 1,
+        retry: { maxAttempts: 1 },
         invariants: [
           (o) =>
             Math.abs(o.total - (o.subtotal + o.tax)) < 0.01 ||
@@ -109,7 +105,7 @@ Let me know if you need anything else!`;
 });
 
 describe("integration: primitives used individually", () => {
-  it("clean + check pipeline", () => {
+  it("clean + verify pipeline", () => {
     const Schema = z.object({
       name: z.string(),
       score: z.number(),
@@ -117,7 +113,7 @@ describe("integration: primitives used individually", () => {
 
     const raw = '```json\n{"name": "Alice", "score": "95"}\n```';
     const cleaned = clean(raw);
-    const result = check(cleaned, Schema);
+    const result = verify(cleaned, Schema);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -126,17 +122,17 @@ describe("integration: primitives used individually", () => {
     }
   });
 
-  it("check + fix pipeline", () => {
+  it("verify + repair pipeline", () => {
     const Schema = z.object({
       category: z.enum(["bug", "feature", "question"]),
     });
 
-    const result = check({ category: "request" }, Schema);
+    const result = verify({ category: "request" }, Schema);
     expect(result.ok).toBe(false);
 
     if (!result.ok) {
       const lastDetail = result.error.attempts[0];
-      const messages = asMessages(fix(lastDetail));
+      const messages = asMessages(repair(lastDetail));
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe("user");
       expect(messages[0].content).toContain("category");
@@ -209,7 +205,7 @@ describe("integration: error classification end-to-end", () => {
         return "I'm sorry, I cannot assist with that request.";
       },
       {
-        maxAttempts: 5,
+        retry: { maxAttempts: 5 },
         repairs: { REFUSAL: false },
       },
     );
@@ -246,8 +242,8 @@ describe("integration: error classification end-to-end", () => {
     const result = await enforce(
       z.object({ data: z.string() }),
       async (attempt) => {
-        if (attempt.fixes.length > 0) {
-          receivedFix = attempt.fixes[0].content;
+        if (attempt.repairs.length > 0) {
+          receivedFix = attempt.repairs[0].content;
         }
         if (attempt.number === 1) {
           return "The data looks good, no issues found.";

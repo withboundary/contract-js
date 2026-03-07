@@ -1,50 +1,54 @@
 import { describe, it, expect } from "vitest";
-import { resolvePolicy, computeDelay, DEFAULT_POLICY } from "../src/retry.js";
+import {
+  computeRetryDelay,
+  DEFAULT_RETRY_POLICY,
+  resolveRetryPolicy,
+} from "../src/index.js";
 
-describe("resolvePolicy", () => {
+describe("resolveRetryPolicy", () => {
   it("returns defaults when no options given", () => {
-    expect(resolvePolicy()).toEqual(DEFAULT_POLICY);
+    expect(resolveRetryPolicy()).toEqual(DEFAULT_RETRY_POLICY);
   });
 
   it("overrides maxAttempts", () => {
-    expect(resolvePolicy({ maxAttempts: 5 }).maxAttempts).toBe(5);
+    expect(resolveRetryPolicy({ maxAttempts: 5 }).maxAttempts).toBe(5);
   });
 
   it("overrides backoff", () => {
-    expect(resolvePolicy({ backoff: "exponential" }).backoff).toBe(
+    expect(resolveRetryPolicy({ backoff: "exponential" }).backoff).toBe(
       "exponential",
     );
   });
 
-  it("overrides backoffBaseMS", () => {
-    expect(resolvePolicy({ backoffBaseMS: 500 }).backoffBaseMS).toBe(500);
+  it("overrides baseMs", () => {
+    expect(resolveRetryPolicy({ baseMs: 500 }).baseMs).toBe(500);
   });
 });
 
-describe("computeDelay", () => {
+describe("computeRetryDelay", () => {
   it("returns 0 for first attempt", () => {
     expect(
-      computeDelay(1, { maxAttempts: 3, backoff: "exponential", backoffBaseMS: 200 }),
+      computeRetryDelay(1, { maxAttempts: 3, backoff: "exponential", baseMs: 200 }),
     ).toBe(0);
   });
 
   it("returns 0 for 'none' backoff", () => {
     expect(
-      computeDelay(3, { maxAttempts: 3, backoff: "none", backoffBaseMS: 200 }),
+      computeRetryDelay(3, { maxAttempts: 3, backoff: "none", baseMs: 200 }),
     ).toBe(0);
   });
 
   it("computes linear backoff", () => {
-    const policy = { maxAttempts: 5, backoff: "linear" as const, backoffBaseMS: 100 };
-    expect(computeDelay(2, policy)).toBe(100);
-    expect(computeDelay(3, policy)).toBe(200);
-    expect(computeDelay(4, policy)).toBe(300);
+    const policy = { maxAttempts: 5, backoff: "linear" as const, baseMs: 100 };
+    expect(computeRetryDelay(2, policy)).toBe(100);
+    expect(computeRetryDelay(3, policy)).toBe(200);
+    expect(computeRetryDelay(4, policy)).toBe(300);
   });
 
   it("computes exponential backoff", () => {
-    const policy = { maxAttempts: 5, backoff: "exponential" as const, backoffBaseMS: 100 };
-    expect(computeDelay(2, policy)).toBe(100);
-    expect(computeDelay(3, policy)).toBe(200);
-    expect(computeDelay(4, policy)).toBe(400);
+    const policy = { maxAttempts: 5, backoff: "exponential" as const, baseMs: 100 };
+    expect(computeRetryDelay(2, policy)).toBe(100);
+    expect(computeRetryDelay(3, policy)).toBe(200);
+    expect(computeRetryDelay(4, policy)).toBe(400);
   });
 });

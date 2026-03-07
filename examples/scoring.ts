@@ -8,7 +8,7 @@
  *
  *   npx tsx examples/scoring.ts
  */
-import { enforce } from "../src/index.js";
+import { defineContract } from "../src/index.js";
 import { z } from "zod";
 
 const LeadSchema = z.object({
@@ -49,30 +49,29 @@ function simulateLLM(attemptNumber: number): string {
 }
 
 async function main() {
-  const result = await enforce(
-    LeadSchema,
-    async (attempt) => simulateLLM(attempt.number),
-    {
-      invariants: [
-        (d: Lead) =>
-          d.tier !== "hot" || d.score >= 70
-            || `tier is "hot" but score is ${d.score} (minimum 70 for hot)`,
-        (d: Lead) =>
-          d.tier !== "cold" || d.score < 30
-            || `tier is "cold" but score is ${d.score} (must be under 30 for cold)`,
-        (d: Lead) =>
-          d.nextAction !== "close" || d.qualified
-            || 'nextAction is "close" but lead is not qualified',
-        (d: Lead) =>
-          d.signals.length > 0 || "must cite at least one signal",
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
-      },
+  const contract = defineContract({
+    schema: LeadSchema,
+    invariants: [
+      (d: Lead) =>
+        d.tier !== "hot" || d.score >= 70
+          || `tier is "hot" but score is ${d.score} (minimum 70 for hot)`,
+      (d: Lead) =>
+        d.tier !== "cold" || d.score < 30
+          || `tier is "cold" but score is ${d.score} (must be under 30 for cold)`,
+      (d: Lead) =>
+        d.nextAction !== "close" || d.qualified
+          || 'nextAction is "close" but lead is not qualified',
+      (d: Lead) =>
+        d.signals.length > 0 || "must cite at least one signal",
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+
+  const result = await contract.run(async (attempt) => simulateLLM(attempt.number));
 
   console.log();
   if (result.ok) {

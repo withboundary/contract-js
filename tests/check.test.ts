@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { check } from "../src/check.js";
+import { verify } from "../src/index.js";
 
-describe("check", () => {
+describe("verify", () => {
   const Schema = z.object({
     name: z.string(),
     age: z.number().min(0).max(150),
@@ -10,7 +10,7 @@ describe("check", () => {
 
   describe("valid data", () => {
     it("returns success for valid data", () => {
-      const result = check({ name: "Alice", age: 30 }, Schema);
+      const result = verify({ name: "Alice", age: 30 }, Schema);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.data).toEqual({ name: "Alice", age: 30 });
@@ -18,7 +18,7 @@ describe("check", () => {
     });
 
     it("strips extra fields via Zod", () => {
-      const result = check(
+      const result = verify(
         { name: "Alice", age: 30, extra: "field" },
         Schema,
       );
@@ -28,7 +28,7 @@ describe("check", () => {
 
   describe("invalid data", () => {
     it("fails when a required field is missing", () => {
-      const result = check({ name: "Alice" }, Schema);
+      const result = verify({ name: "Alice" }, Schema);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.attempts[0].issues.length).toBeGreaterThan(0);
@@ -37,7 +37,7 @@ describe("check", () => {
     });
 
     it("fails when a field has wrong type", () => {
-      const result = check({ name: 123, age: 30 }, Schema);
+      const result = verify({ name: 123, age: 30 }, Schema);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.attempts[0].issues[0]).toContain("name");
@@ -45,7 +45,7 @@ describe("check", () => {
     });
 
     it("fails when a number is out of range", () => {
-      const result = check({ name: "Alice", age: -5 }, Schema);
+      const result = verify({ name: "Alice", age: -5 }, Schema);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.attempts[0].issues[0]).toContain("age");
@@ -53,7 +53,7 @@ describe("check", () => {
     });
 
     it("collects multiple issues", () => {
-      const result = check({ name: 123 }, Schema);
+      const result = verify({ name: 123 }, Schema);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.attempts[0].issues.length).toBe(2);
@@ -72,7 +72,7 @@ describe("check", () => {
     });
 
     it("validates nested objects", () => {
-      const result = check(
+      const result = verify(
         { user: { name: "Alice", address: { city: "NYC" } } },
         NestedSchema,
       );
@@ -80,7 +80,7 @@ describe("check", () => {
     });
 
     it("reports path for nested failures", () => {
-      const result = check(
+      const result = verify(
         { user: { name: "Alice", address: { city: 123 } } },
         NestedSchema,
       );
@@ -99,26 +99,26 @@ describe("check", () => {
     });
 
     it("passes for valid enum value", () => {
-      const result = check({ status: "active" }, EnumSchema);
+      const result = verify({ status: "active" }, EnumSchema);
       expect(result.ok).toBe(true);
     });
 
     it("fails for invalid enum value", () => {
-      const result = check({ status: "unknown" }, EnumSchema);
+      const result = verify({ status: "unknown" }, EnumSchema);
       expect(result.ok).toBe(false);
     });
   });
 
   describe("invariants", () => {
     it("passes when invariants pass", () => {
-      const result = check({ name: "Alice", age: 30 }, Schema, [
+      const result = verify({ name: "Alice", age: 30 }, Schema, [
         (data) => data.age >= 18 || "must be 18 or older",
       ]);
       expect(result.ok).toBe(true);
     });
 
     it("fails when an invariant fails", () => {
-      const result = check({ name: "Alice", age: 10 }, Schema, [
+      const result = verify({ name: "Alice", age: 10 }, Schema, [
         (data) => data.age >= 18 || "must be 18 or older",
       ]);
       expect(result.ok).toBe(false);
@@ -130,7 +130,7 @@ describe("check", () => {
     });
 
     it("collects multiple invariant failures", () => {
-      const result = check({ name: "Alice", age: 10 }, Schema, [
+      const result = verify({ name: "Alice", age: 10 }, Schema, [
         (data) => data.age >= 18 || "must be 18 or older",
         (data) => data.name.length > 10 || "name too short",
       ]);
@@ -142,7 +142,7 @@ describe("check", () => {
 
     it("does not run invariants when schema validation fails", () => {
       let invariantCalled = false;
-      const result = check({ name: 123 }, Schema, [
+      const result = verify({ name: 123 }, Schema, [
         () => {
           invariantCalled = true;
           return true;

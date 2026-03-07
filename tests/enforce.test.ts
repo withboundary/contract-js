@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { enforce } from "../src/enforce.js";
-import type { AttemptContext, AttemptEvent } from "../src/types.js";
+import { createConsoleLogger, defineContract, enforce } from "../src/index.js";
+import type { AttemptContext, AttemptEvent, ContractLogger } from "../src/index.js";
 
 const Schema = z.object({
   sentiment: z.enum(["positive", "negative", "neutral"]),
@@ -42,7 +42,7 @@ describe("enforce", () => {
       if (callCount === 1) {
         return '{"sentiment": "great", "confidence": 0.9}';
       }
-      expect(attempt.fixes.length).toBeGreaterThan(0);
+      expect(attempt.repairs.length).toBeGreaterThan(0);
       expect(attempt.previousCategory).toBe("VALIDATION_ERROR");
       return '{"sentiment": "positive", "confidence": 0.9}';
     });
@@ -60,7 +60,7 @@ describe("enforce", () => {
       async () => {
         return '{"sentiment": "invalid", "confidence": 2.0}';
       },
-      { maxAttempts: 2 },
+      { retry: { maxAttempts: 2 } },
     );
 
     expect(result.ok).toBe(false);
@@ -82,7 +82,7 @@ describe("enforce", () => {
         }
         return '{"sentiment": "neutral", "confidence": 0.5}';
       },
-      { maxAttempts: 3 },
+      { retry: { maxAttempts: 3 } },
     );
 
     expect(result.ok).toBe(true);
@@ -97,7 +97,7 @@ describe("enforce", () => {
       async () => {
         throw new Error("API down");
       },
-      { maxAttempts: 2 },
+      { retry: { maxAttempts: 2 } },
     );
 
     expect(result.ok).toBe(false);
@@ -112,7 +112,7 @@ describe("enforce", () => {
     const result = await enforce(
       Schema,
       async () => null,
-      { maxAttempts: 1 },
+      { retry: { maxAttempts: 1 } },
     );
 
     expect(result.ok).toBe(false);
@@ -125,7 +125,7 @@ describe("enforce", () => {
     const result = await enforce(
       Schema,
       async () => "I'm sorry, I can't assist with that request.",
-      { maxAttempts: 1 },
+      { retry: { maxAttempts: 1 } },
     );
 
     expect(result.ok).toBe(false);
@@ -138,7 +138,7 @@ describe("enforce", () => {
     const result = await enforce(
       Schema,
       async () => '{"sentiment": "positive", "confidence":',
-      { maxAttempts: 1 },
+      { retry: { maxAttempts: 1 } },
     );
 
     expect(result.ok).toBe(false);
@@ -151,7 +151,7 @@ describe("enforce", () => {
     const result = await enforce(
       Schema,
       async () => "The sentiment is positive with high confidence.",
-      { maxAttempts: 1 },
+      { retry: { maxAttempts: 1 } },
     );
 
     expect(result.ok).toBe(false);
@@ -167,7 +167,7 @@ describe("enforce", () => {
         return '{"sentiment": "positive", "confidence": 0.3}';
       },
       {
-        maxAttempts: 1,
+        retry: { maxAttempts: 1 },
         invariants: [
           (d) => d.confidence >= 0.5 || "confidence too low",
         ],
@@ -190,7 +190,7 @@ describe("enforce", () => {
         return "I'm sorry, I cannot help with that.";
       },
       {
-        maxAttempts: 5,
+        retry: { maxAttempts: 5 },
         repairs: { REFUSAL: false },
       },
     );
@@ -211,8 +211,8 @@ describe("enforce", () => {
       Schema,
       async (attempt) => {
         callCount++;
-        if (attempt.fixes.length > 0) {
-          receivedFixes = attempt.fixes.map((f) => f.content);
+        if (attempt.repairs.length > 0) {
+          receivedFixes = attempt.repairs.map((f) => f.content);
         }
         if (callCount === 1) {
           return "";
@@ -220,7 +220,7 @@ describe("enforce", () => {
         return '{"sentiment": "positive", "confidence": 0.9}';
       },
       {
-        maxAttempts: 3,
+        retry: { maxAttempts: 3 },
         repairs: {
           EMPTY_RESPONSE: () => [
             { role: "user", content: "CUSTOM: please provide data" },
@@ -259,7 +259,7 @@ describe("enforce", () => {
       Schema,
       async () => "Just some text.",
       {
-        maxAttempts: 1,
+        retry: { maxAttempts: 1 },
         onAttempt: (event) => {
           events.push(event);
         },
@@ -271,51 +271,57 @@ describe("enforce", () => {
     expect(events[0].category).toBe("NO_JSON");
   });
 
-  it("provides attempt.prompt from schema", async () => {
-    let receivedPrompt = "";
+  it("provides attempt.instructions from schema", async () => {
+    let receivedInstructions = "";
 
     await enforce(Schema, async (attempt) => {
-      receivedPrompt = attempt.prompt;
+      receivedInstructions = attempt.instructions;
       return '{"sentiment": "positive", "confidence": 0.9}';
     });
 
-    expect(receivedPrompt).toContain("JSON");
-    expect(receivedPrompt).toContain("sentiment");
+    expect(receivedInstructions).toContain("JSON");
+    expect(receivedInstructions).toContain("sentiment");
   });
 
-  it("appends promptSuffix to attempt.prompt", async () => {
-    let receivedPrompt = "";
+  it("appends instructions.suffix to attempt.instructions", async () => {
+    let receivedInstructions = "";
 
     await enforce(Schema, async (attempt) => {
-      receivedPrompt = attempt.prompt;
+      receivedInstructions = attempt.instructions;
       return '{"sentiment": "positive", "confidence": 0.9}';
     }, {
-      promptSuffix: "If an optional field is unknown, omit it.",
+      instructions: {
+        suffix: "If an optional field is unknown, omit it.",
+      },
     });
 
-    expect(receivedPrompt).toContain("sentiment");
-    expect(receivedPrompt).toContain("If an optional field is unknown, omit it.");
+    expect(receivedInstructions).toContain("sentiment");
+    expect(receivedInstructions).toContain(
+      "If an optional field is unknown, omit it.",
+    );
   });
 
-  it("does not modify prompt when promptSuffix is not provided", async () => {
-    let promptWithout = "";
-    let promptWith = "";
+  it("does not modify instructions when suffix is not provided", async () => {
+    let instructionsWithout = "";
+    let instructionsWith = "";
 
     await enforce(Schema, async (attempt) => {
-      promptWithout = attempt.prompt;
+      instructionsWithout = attempt.instructions;
       return '{"sentiment": "positive", "confidence": 0.9}';
     });
 
     await enforce(Schema, async (attempt) => {
-      promptWith = attempt.prompt;
+      instructionsWith = attempt.instructions;
       return '{"sentiment": "positive", "confidence": 0.9}';
     }, {
-      promptSuffix: "Extra instruction.",
+      instructions: {
+        suffix: "Extra instruction.",
+      },
     });
 
-    expect(promptWith).toContain(promptWithout);
-    expect(promptWith).toContain("Extra instruction.");
-    expect(promptWithout).not.toContain("Extra instruction.");
+    expect(instructionsWith).toContain(instructionsWithout);
+    expect(instructionsWith).toContain("Extra instruction.");
+    expect(instructionsWithout).not.toContain("Extra instruction.");
   });
 
   it("coerces string types during clean", async () => {
@@ -327,5 +333,76 @@ describe("enforce", () => {
     if (result.ok) {
       expect(result.data.confidence).toBe(0.85);
     }
+  });
+
+  it("supports defineContract with runtime option overrides", async () => {
+    const contract = defineContract({
+      schema: Schema,
+      retry: { maxAttempts: 2 },
+      instructions: { suffix: "Base suffix." },
+    });
+
+    let receivedInstructions = "";
+    let attempts = 0;
+
+    const result = await contract.run(async (attempt) => {
+      attempts++;
+      receivedInstructions = attempt.instructions;
+      if (attempts === 1) {
+        return "invalid";
+      }
+      return '{"sentiment":"positive","confidence":0.7}';
+    }, {
+      instructions: { suffix: "Runtime suffix." },
+      retry: { maxAttempts: 3 },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(receivedInstructions).toContain("Runtime suffix.");
+    expect(receivedInstructions).not.toContain("Base suffix.");
+  });
+
+  it("runs custom logger and onAttempt together", async () => {
+    const loggerCalls: string[] = [];
+    const attemptEvents: AttemptEvent[] = [];
+    const logger: ContractLogger = {
+      onAttemptStart() {
+        loggerCalls.push("onAttemptStart");
+      },
+      onRunSuccess() {
+        loggerCalls.push("onRunSuccess");
+      },
+    };
+
+    const result = await enforce(
+      Schema,
+      async () => '{"sentiment":"positive","confidence":0.92}',
+      {
+        logger,
+        onAttempt: (event) => {
+          attemptEvents.push(event);
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(loggerCalls).toEqual(["onAttemptStart", "onRunSuccess"]);
+    expect(attemptEvents).toHaveLength(1);
+    expect(attemptEvents[0].ok).toBe(true);
+  });
+
+  it("supports debug convenience mode", async () => {
+    const logger = createConsoleLogger();
+
+    const result = await enforce(
+      Schema,
+      async () => '{"sentiment":"neutral","confidence":0.88}',
+      {
+        debug: true,
+        logger,
+      },
+    );
+
+    expect(result.ok).toBe(true);
   });
 });

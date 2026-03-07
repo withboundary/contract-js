@@ -1,21 +1,21 @@
 import {
   type ZodType,
-  ZodObject,
   ZodArray,
-  ZodEnum,
-  ZodNativeEnum,
-  ZodString,
-  ZodNumber,
   ZodBoolean,
-  ZodOptional,
-  ZodNullable,
   ZodDefault,
-  ZodLiteral,
-  ZodUnion,
   ZodEffects,
+  ZodEnum,
+  ZodLiteral,
+  ZodNativeEnum,
+  ZodNullable,
+  ZodNumber,
+  ZodObject,
+  ZodOptional,
+  ZodString,
+  ZodUnion,
 } from "zod";
 
-export function prompt(schema: ZodType): string {
+export function instructions(schema: ZodType): string {
   const shape = describeSchema(schema, 0);
   return [
     "Respond with valid JSON matching this structure exactly.",
@@ -35,46 +35,42 @@ function describeSchema(schema: ZodType, depth: number): string {
   if (unwrapped instanceof ZodObject) {
     return describeObject(unwrapped, depth);
   }
-
   if (unwrapped instanceof ZodArray) {
     const itemDesc = describeSchema(unwrapped.element, depth + 1);
     return `${indent}array of:\n${itemDesc}`;
   }
-
   if (unwrapped instanceof ZodEnum) {
-    const values = (unwrapped.options as string[]).map((v) => `"${v}"`).join(" | ");
-    return `${indent}one of: ${values}`;
-  }
-
-  if (unwrapped instanceof ZodNativeEnum) {
-    const values = Object.values(unwrapped.enum as Record<string, string | number>)
-      .filter((v) => typeof v === "string")
-      .map((v) => `"${v}"`)
+    const values = (unwrapped.options as string[])
+      .map((value) => `"${value}"`)
       .join(" | ");
     return `${indent}one of: ${values}`;
   }
-
+  if (unwrapped instanceof ZodNativeEnum) {
+    const values = Object.values(
+      unwrapped.enum as Record<string, string | number>,
+    )
+      .filter((value) => typeof value === "string")
+      .map((value) => `"${value}"`)
+      .join(" | ");
+    return `${indent}one of: ${values}`;
+  }
   if (unwrapped instanceof ZodLiteral) {
     return `${indent}exactly: ${JSON.stringify(unwrapped.value)}`;
   }
-
   if (unwrapped instanceof ZodUnion) {
     const options = (unwrapped.options as ZodType[])
-      .map((o) => describeSchema(o, depth))
-      .join(` | `);
+      .map((option) => describeSchema(option, depth))
+      .join(" | ");
     return options;
   }
-
   if (unwrapped instanceof ZodString) {
     const constraints = describeStringConstraints(unwrapped);
     return `${indent}string${constraints ? ` (${constraints})` : ""}`;
   }
-
   if (unwrapped instanceof ZodNumber) {
     const constraints = describeNumberConstraints(unwrapped);
     return `${indent}number${constraints ? ` (${constraints})` : ""}`;
   }
-
   if (unwrapped instanceof ZodBoolean) {
     return `${indent}boolean`;
   }
@@ -100,7 +96,9 @@ function describeObject(schema: ZodObject<any>, depth: number): string {
 }
 
 function describeStringConstraints(schema: ZodString): string {
-  const checks = (schema as any)._def?.checks as Array<{ kind: string; value?: unknown; regex?: RegExp }> | undefined;
+  const checks = (schema as any)._def?.checks as
+    | Array<{ kind: string; value?: unknown; regex?: RegExp }>
+    | undefined;
   if (!checks || checks.length === 0) {
     return "";
   }
@@ -133,7 +131,9 @@ function describeStringConstraints(schema: ZodString): string {
 }
 
 function describeNumberConstraints(schema: ZodNumber): string {
-  const checks = (schema as any)._def?.checks as Array<{ kind: string; value?: number }> | undefined;
+  const checks = (schema as any)._def?.checks as
+    | Array<{ kind: string; value?: number }>
+    | undefined;
   if (!checks || checks.length === 0) {
     return "";
   }

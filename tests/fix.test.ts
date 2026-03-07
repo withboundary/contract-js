@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { fix } from "../src/fix.js";
-import type { AttemptDetail, Message } from "../src/types.js";
+import { repair } from "../src/index.js";
+import type { AttemptDetail, Message } from "../src/index.js";
 
 function asMessages(result: Message[] | false): Message[] {
   if (result === false) {
@@ -9,7 +9,7 @@ function asMessages(result: Message[] | false): Message[] {
   return result;
 }
 
-describe("fix", () => {
+describe("repair", () => {
   it("generates a repair for VALIDATION_ERROR with specific issues", () => {
     const detail: AttemptDetail = {
       raw: "{}",
@@ -18,7 +18,7 @@ describe("fix", () => {
       category: "VALIDATION_ERROR",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages).toHaveLength(1);
     expect(messages[0].role).toBe("user");
     expect(messages[0].content).toContain("age: Required");
@@ -33,7 +33,7 @@ describe("fix", () => {
       category: "EMPTY_RESPONSE",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("empty response");
   });
 
@@ -45,7 +45,7 @@ describe("fix", () => {
       category: "REFUSAL",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("structured data task");
   });
 
@@ -57,7 +57,7 @@ describe("fix", () => {
       category: "NO_JSON",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("no JSON");
   });
 
@@ -69,7 +69,7 @@ describe("fix", () => {
       category: "TRUNCATED",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("cut off");
   });
 
@@ -81,7 +81,7 @@ describe("fix", () => {
       category: "PARSE_ERROR",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("malformed JSON");
   });
 
@@ -93,7 +93,7 @@ describe("fix", () => {
       category: "INVARIANT_ERROR",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("schema constraints");
     expect(messages[0].content).toContain("total must be >= subtotal");
   });
@@ -106,7 +106,7 @@ describe("fix", () => {
       category: "RUN_ERROR",
     };
 
-    const messages = asMessages(fix(detail));
+    const messages = asMessages(repair(detail));
     expect(messages[0].content).toContain("error");
   });
 
@@ -120,7 +120,7 @@ describe("fix", () => {
       };
 
       const messages = asMessages(
-        fix(detail, {
+        repair(detail, {
           REFUSAL: () => [
             { role: "user", content: "Custom refusal handler" },
           ],
@@ -137,7 +137,7 @@ describe("fix", () => {
         category: "REFUSAL",
       };
 
-      const result = fix(detail, { REFUSAL: false });
+      const result = repair(detail, { REFUSAL: false });
       expect(result).toBe(false);
     });
 
@@ -150,7 +150,7 @@ describe("fix", () => {
       };
 
       const messages = asMessages(
-        fix(detail, {
+        repair(detail, {
           REFUSAL: false,
         }),
       );

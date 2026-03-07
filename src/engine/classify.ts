@@ -1,4 +1,4 @@
-import type { FailureCategory } from "./types.js";
+import type { FailureCategory } from "../contract/types.js";
 
 const REFUSAL_PATTERNS = [
   /i(?:'m| am) sorry/i,
@@ -31,7 +31,6 @@ export function classify(raw: string, cleaned: unknown): FailureCategory {
   }
 
   const hasStructure = trimmed.includes("{") || trimmed.includes("[");
-
   if (hasStructure) {
     return "PARSE_ERROR";
   }
@@ -71,10 +70,18 @@ function isTruncated(text: string): boolean {
       continue;
     }
 
-    if (char === "{") { openBraces++; }
-    if (char === "}") { openBraces--; }
-    if (char === "[") { openBrackets++; }
-    if (char === "]") { openBrackets--; }
+    if (char === "{") {
+      openBraces++;
+    }
+    if (char === "}") {
+      openBraces--;
+    }
+    if (char === "[") {
+      openBrackets++;
+    }
+    if (char === "]") {
+      openBrackets--;
+    }
   }
 
   return openBraces > 0 || openBrackets > 0;

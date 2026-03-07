@@ -8,7 +8,7 @@
  *
  *   npx tsx examples/classification.ts
  */
-import { enforce } from "../src/index.js";
+import { defineContract } from "../src/index.js";
 import { z } from "zod";
 
 const TicketSchema = z.object({
@@ -51,24 +51,24 @@ function simulateLLM(attemptNumber: number): string {
 }
 
 async function main() {
-  const result = await enforce(
-    TicketSchema,
-    async (attempt) => simulateLLM(attempt.number),
-    {
-      invariants: [
-        (t: Ticket) =>
-          t.tags.length > 0 || "must have at least one tag",
-        (t: Ticket) =>
-          t.summary.length <= 200
-            || `summary too long: ${t.summary.length} chars (max 200)`,
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
-      },
+  const contract = defineContract({
+    schema: TicketSchema,
+    debug: true,
+    invariants: [
+      (t: Ticket) =>
+        t.tags.length > 0 || "must have at least one tag",
+      (t: Ticket) =>
+        t.summary.length <= 200
+          || `summary too long: ${t.summary.length} chars (max 200)`,
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+
+  const result = await contract.run(async (attempt) => simulateLLM(attempt.number));
 
   console.log();
   if (result.ok) {

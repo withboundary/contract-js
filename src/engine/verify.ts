@@ -1,9 +1,9 @@
-import type { ZodType, ZodError } from "zod";
-import type { Result, Invariant } from "./types.js";
-import { success, failure } from "./types.js";
-import { createContractError, createAttemptDetail } from "./errors.js";
+import type { ZodError, ZodType } from "zod";
+import type { Invariant, Result } from "../contract/types.js";
+import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
+import { success } from "../result/success.js";
 
-export function check<T>(
+export function verify<T>(
   data: unknown,
   schema: ZodType<T>,
   invariants?: Invariant<T>[],
@@ -44,12 +44,17 @@ export function check<T>(
     }
   }
 
-  return success(typed, 1, typeof data === "string" ? data : JSON.stringify(data), 0);
+  return success(
+    typed,
+    1,
+    typeof data === "string" ? data : JSON.stringify(data),
+    0,
+  );
 }
 
 export function formatZodError(error: ZodError): string[] {
   return error.issues.map((issue) => {
-    const path = issue.path.length > 0 ? issue.path.join(".") + ": " : "";
+    const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
     return `${path}${issue.message}`;
   });
 }

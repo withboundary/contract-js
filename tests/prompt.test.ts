@@ -1,15 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { prompt } from "../src/prompt.js";
+import { instructions } from "../src/index.js";
 
-describe("prompt", () => {
+describe("instructions", () => {
   it("generates a prompt from a simple object schema", () => {
     const schema = z.object({
       name: z.string(),
       age: z.number(),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain("JSON");
     expect(result).toContain('"name"');
     expect(result).toContain("string");
@@ -22,7 +22,7 @@ describe("prompt", () => {
       status: z.enum(["active", "inactive", "pending"]),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain('"active"');
     expect(result).toContain('"inactive"');
     expect(result).toContain('"pending"');
@@ -33,7 +33,7 @@ describe("prompt", () => {
       score: z.number().min(0).max(100),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain(">= 0");
     expect(result).toContain("<= 100");
   });
@@ -43,7 +43,7 @@ describe("prompt", () => {
       email: z.string().email(),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain("email");
   });
 
@@ -57,7 +57,7 @@ describe("prompt", () => {
       }),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain('"user"');
     expect(result).toContain('"name"');
     expect(result).toContain('"address"');
@@ -69,7 +69,7 @@ describe("prompt", () => {
       items: z.array(z.object({ name: z.string() })),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain("array");
     expect(result).toContain('"name"');
   });
@@ -80,7 +80,7 @@ describe("prompt", () => {
       nickname: z.string().optional(),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain("optional");
   });
 
@@ -89,13 +89,13 @@ describe("prompt", () => {
       active: z.boolean(),
     });
 
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result).toContain("boolean");
   });
 
   it("instructs no markdown fences", () => {
     const schema = z.object({ ok: z.boolean() });
-    const result = prompt(schema);
+    const result = instructions(schema);
     expect(result.toLowerCase()).toContain("no markdown");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classify } from "../src/classify.js";
+import { classify } from "../src/index.js";
 
 describe("classify", () => {
   describe("EMPTY_RESPONSE", () => {

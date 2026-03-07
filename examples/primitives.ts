@@ -1,9 +1,9 @@
 /**
- * Using individual primitives: clean, check, fix, select.
+ * Using individual primitives: clean, verify, repair, select.
  *
  *   npx tsx examples/primitives.ts
  */
-import { clean, check, fix, select } from "../src/index.js";
+import { clean, repair, select, verify } from "../src/index.js";
 import { z } from "zod";
 
 // --- clean: extract JSON from messy LLM output ---
@@ -21,28 +21,28 @@ console.log("From prose:", fromProse);
 const coerced = clean('{"score": "85", "passing": "true"}');
 console.log("Coerced:", coerced);
 
-// --- check: validate against a schema ---
+// --- verify: validate against a schema ---
 
-console.log("\n=== check ===");
+console.log("\n=== verify ===");
 
 const Schema = z.object({
   name: z.string(),
   age: z.number().min(0).max(150),
 });
 
-const valid = check({ name: "Alice", age: 30 }, Schema);
+const valid = verify({ name: "Alice", age: 30 }, Schema);
 console.log("Valid:", valid);
 
-const invalid = check({ name: "Alice", age: -5 }, Schema);
+const invalid = verify({ name: "Alice", age: -5 }, Schema);
 console.log("Invalid:", invalid);
 
-// --- fix: turn errors into repair messages ---
+// --- repair: turn errors into repair messages ---
 
-console.log("\n=== fix ===");
+console.log("\n=== repair ===");
 
 if (!invalid.ok) {
   const lastDetail = invalid.error.attempts[0];
-  const repairMessages = fix(lastDetail);
+  const repairMessages = repair(lastDetail);
   if (repairMessages !== false) {
     console.log("Repair message:", repairMessages[0].content);
     console.log("Category:", lastDetail.category);

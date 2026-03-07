@@ -1,15 +1,20 @@
-import type { AttemptDetail, ContractError, FailureCategory } from "./types.js";
+import type {
+  AttemptDetail,
+  ContractError,
+  Failure,
+  FailureCategory,
+} from "../contract/types.js";
 
-export function createContractError(
-  attempts: AttemptDetail[],
-): ContractError {
+export function failure(error: ContractError): Failure {
+  return { ok: false, error };
+}
+
+export function createContractError(attempts: AttemptDetail[]): ContractError {
   const lastAttempt = attempts[attempts.length - 1];
   const issuesSummary = lastAttempt
     ? lastAttempt.issues.join("; ")
     : "unknown error";
-
   const category = lastAttempt?.category ?? "VALIDATION_ERROR";
-
   return {
     message: `Contract failed after ${attempts.length} attempt(s) [${category}]: ${issuesSummary}`,
     attempts,

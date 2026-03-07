@@ -10,7 +10,7 @@
  *
  *   npx tsx examples/fallback.ts
  */
-import { enforce } from "../src/index.js";
+import { defineContract } from "../src/index.js";
 import { z } from "zod";
 
 const AnalysisSchema = z.object({
@@ -42,43 +42,39 @@ function simulateStrongModel(_attemptNumber: number): string {
 
 async function analyzeCheap() {
   console.log("--- Cheap model ---");
-  return enforce(
-    AnalysisSchema,
-    async (attempt) => simulateCheapModel(attempt.number),
-    {
-      maxAttempts: 2,
-      invariants: [
-        (d: Analysis) =>
-          d.risks.length > 0 || d.recommendation === "approve"
-            || "non-approve recommendation must cite at least one risk",
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
-      },
+  const contract = defineContract({
+    schema: AnalysisSchema,
+    retry: { maxAttempts: 2 },
+    invariants: [
+      (d: Analysis) =>
+        d.risks.length > 0 || d.recommendation === "approve"
+          || "non-approve recommendation must cite at least one risk",
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+  return contract.run(async (attempt) => simulateCheapModel(attempt.number));
 }
 
 async function analyzeStrong() {
   console.log("--- Strong model ---");
-  return enforce(
-    AnalysisSchema,
-    async (attempt) => simulateStrongModel(attempt.number),
-    {
-      invariants: [
-        (d: Analysis) =>
-          d.risks.length > 0 || d.recommendation === "approve"
-            || "non-approve recommendation must cite at least one risk",
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
-      },
+  const contract = defineContract({
+    schema: AnalysisSchema,
+    invariants: [
+      (d: Analysis) =>
+        d.risks.length > 0 || d.recommendation === "approve"
+          || "non-approve recommendation must cite at least one risk",
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+  return contract.run(async (attempt) => simulateStrongModel(attempt.number));
 }
 
 async function main() {

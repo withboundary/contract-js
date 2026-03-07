@@ -1,6 +1,11 @@
-import type { AttemptDetail, FailureCategory, Message, RepairFn } from "./types.js";
+import type {
+  AttemptDetail,
+  FailureCategory,
+  Message,
+  RepairFn,
+} from "../contract/types.js";
 
-export function fix(
+export function repair(
   detail: AttemptDetail,
   repairs?: Partial<Record<FailureCategory, RepairFn | false>>,
 ): Message[] | false {
@@ -27,7 +32,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "You returned an empty response. Please respond with a JSON object matching the requested schema.",
         },
       ];
-
     case "REFUSAL":
       return [
         {
@@ -36,7 +40,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "This is a structured data task. Your response should be a JSON object only, with no refusal or commentary.",
         },
       ];
-
     case "NO_JSON":
       return [
         {
@@ -45,7 +48,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "Your response contained no JSON. Respond with ONLY a valid JSON object, no explanation, no commentary, no markdown.",
         },
       ];
-
     case "TRUNCATED":
       return [
         {
@@ -54,7 +56,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "Your previous response was cut off and the JSON is incomplete. Please provide a complete, shorter JSON response.",
         },
       ];
-
     case "PARSE_ERROR":
       return [
         {
@@ -63,7 +64,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "Your response contained malformed JSON that could not be parsed. Please respond with strictly valid JSON.",
         },
       ];
-
     case "VALIDATION_ERROR": {
       if (detail.issues.length === 0) {
         return [
@@ -86,7 +86,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
         },
       ];
     }
-
     case "INVARIANT_ERROR": {
       const issueList = detail.issues.map((issue) => `- ${issue}`).join("\n");
       return [
@@ -100,7 +99,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
         },
       ];
     }
-
     case "RUN_ERROR":
       return [
         {
@@ -109,7 +107,6 @@ function defaultRepair(detail: AttemptDetail): Message[] {
             "The previous attempt encountered an error. Please try again and respond with valid JSON matching the schema.",
         },
       ];
-
     default:
       return [
         {

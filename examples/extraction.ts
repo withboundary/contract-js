@@ -10,7 +10,7 @@
  *
  *   npx tsx examples/extraction.ts
  */
-import { enforce } from "../src/index.js";
+import { defineContract } from "../src/index.js";
 import { z } from "zod";
 
 const InvoiceSchema = z.object({
@@ -82,33 +82,32 @@ function simulateLLM(attemptNumber: number): string {
 }
 
 async function main() {
-  const result = await enforce(
-    InvoiceSchema,
-    async (attempt) => simulateLLM(attempt.number),
-    {
-      invariants: [
-        (d: Invoice) => d.lineItems.length > 0 || "invoice must have at least one line item",
-        (d: Invoice) => {
-          const sum = d.lineItems.reduce((s, i) => s + i.amount, 0);
-          return Math.abs(sum - d.subtotal) < 0.01
-            || `line items sum to ${sum}, but subtotal is ${d.subtotal}`;
-        },
-        (d: Invoice) =>
-          Math.abs(d.subtotal + d.tax - d.total) < 0.01
-            || `subtotal (${d.subtotal}) + tax (${d.tax}) = ${d.subtotal + d.tax}, but total is ${d.total}`,
-        (d: Invoice) => {
-          const bad = d.lineItems.find(i => Math.abs(i.quantity * i.unitPrice - i.amount) >= 0.01);
-          return !bad
-            || `${bad.description}: quantity (${bad.quantity}) * unitPrice (${bad.unitPrice}) = ${bad.quantity * bad.unitPrice}, but amount is ${bad.amount}`;
-        },
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
+  const contract = defineContract({
+    schema: InvoiceSchema,
+    invariants: [
+      (d: Invoice) => d.lineItems.length > 0 || "invoice must have at least one line item",
+      (d: Invoice) => {
+        const sum = d.lineItems.reduce((s, i) => s + i.amount, 0);
+        return Math.abs(sum - d.subtotal) < 0.01
+          || `line items sum to ${sum}, but subtotal is ${d.subtotal}`;
       },
+      (d: Invoice) =>
+        Math.abs(d.subtotal + d.tax - d.total) < 0.01
+          || `subtotal (${d.subtotal}) + tax (${d.tax}) = ${d.subtotal + d.tax}, but total is ${d.total}`,
+      (d: Invoice) => {
+        const bad = d.lineItems.find(i => Math.abs(i.quantity * i.unitPrice - i.amount) >= 0.01);
+        return !bad
+          || `${bad.description}: quantity (${bad.quantity}) * unitPrice (${bad.unitPrice}) = ${bad.quantity * bad.unitPrice}, but amount is ${bad.amount}`;
+      },
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+
+  const result = await contract.run(async (attempt) => simulateLLM(attempt.number));
 
   console.log();
   if (result.ok) {

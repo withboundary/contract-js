@@ -30,7 +30,8 @@ function stripFences(text: string): string {
     return match[1].trim();
   }
 
-  const innerFencePattern = /```(?:json|JSON|js|javascript)?\s*\n?([\s\S]*?)\n?\s*```/;
+  const innerFencePattern =
+    /```(?:json|JSON|js|javascript)?\s*\n?([\s\S]*?)\n?\s*```/;
   const innerMatch = text.match(innerFencePattern);
   if (innerMatch) {
     return innerMatch[1].trim();
@@ -154,7 +155,7 @@ function coerce(value: unknown): unknown {
     }
 
     const num = Number(value);
-    if (value !== "" && !isNaN(num) && isFinite(num)) {
+    if (value !== "" && !Number.isNaN(num) && Number.isFinite(num)) {
       return num;
     }
   }

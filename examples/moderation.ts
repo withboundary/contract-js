@@ -9,7 +9,7 @@
  *
  *   npx tsx examples/moderation.ts
  */
-import { enforce } from "../src/index.js";
+import { defineContract } from "../src/index.js";
 import { z } from "zod";
 
 const ModerationSchema = z.object({
@@ -53,31 +53,30 @@ Let me know if you need anything else!`;
 }
 
 async function main() {
-  const result = await enforce(
-    ModerationSchema,
-    async (attempt) => simulateLLM(attempt.number),
-    {
-      invariants: [
-        (d: Moderation) =>
-          d.confidence >= 0.7 || d.action !== "block"
-            || `cannot block with confidence ${d.confidence} (minimum 0.7)`,
-        (d: Moderation) =>
-          d.action === "allow" || d.reason.length > 10
-            || "blocked or flagged content must have a meaningful reason",
-        (d: Moderation) =>
-          d.action === "allow" || d.categories.length > 0
-            || "non-allow decisions must specify at least one category",
-        (d: Moderation) =>
-          d.action !== "allow" || d.categories.length === 0
-            || "action is allow but categories are non-empty — contradictory",
-      ],
-      onAttempt: (event) => {
-        const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
-        const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
-        console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
-      },
+  const contract = defineContract({
+    schema: ModerationSchema,
+    invariants: [
+      (d: Moderation) =>
+        d.confidence >= 0.7 || d.action !== "block"
+          || `cannot block with confidence ${d.confidence} (minimum 0.7)`,
+      (d: Moderation) =>
+        d.action === "allow" || d.reason.length > 10
+          || "blocked or flagged content must have a meaningful reason",
+      (d: Moderation) =>
+        d.action === "allow" || d.categories.length > 0
+          || "non-allow decisions must specify at least one category",
+      (d: Moderation) =>
+        d.action !== "allow" || d.categories.length === 0
+          || "action is allow but categories are non-empty — contradictory",
+    ],
+    onAttempt: (event) => {
+      const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
+      const issues = event.issues.length > 0 ? `\n    ${event.issues.join("\n    ")}` : "";
+      console.log(`  Attempt ${event.number}: ${status} (${event.durationMS}ms)${issues}`);
     },
-  );
+  });
+
+  const result = await contract.run(async (attempt) => simulateLLM(attempt.number));
 
   console.log();
   if (result.ok) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clean } from "../src/clean.js";
+import { clean } from "../src/index.js";
 
 describe("clean", () => {
   describe("markdown fence stripping", () => {

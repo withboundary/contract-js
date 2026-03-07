@@ -6,3 +6,5 @@ coverage/
 .env
 .env.*
 examples/live-*.ts
+internal-docs/
+.astro/
