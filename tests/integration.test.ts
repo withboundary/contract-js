@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { clean, enforce, repair, select, verify } from "../src/index.js";
-import type { AttemptContext, Message } from "../src/index.js";
+import { clean, enforce, repair, verify } from "../src/index.js";
+import { select } from "../src/utils/select.js";
+import type { ContractAttempt, Message } from "../src/index.js";
 
 function asMessages(result: Message[] | false): Message[] {
   if (result === false) {
@@ -58,7 +59,7 @@ Let me know if you need anything else!`;
     });
 
     let attemptNum = 0;
-    const result = await enforce(ScoreSchema, async (attempt: AttemptContext) => {
+    const result = await enforce(ScoreSchema, async (attempt: ContractAttempt) => {
       attemptNum++;
       if (attemptNum === 1) {
         return '{"score": "85", "grade": "excellent"}';
@@ -74,7 +75,7 @@ Let me know if you need anything else!`;
     }
   });
 
-  it("applies invariants after schema validation", async () => {
+  it("applies rules after schema validation", async () => {
     const OrderSchema = z.object({
       subtotal: z.number(),
       tax: z.number(),
@@ -88,7 +89,7 @@ Let me know if you need anything else!`;
       },
       {
         retry: { maxAttempts: 1 },
-        invariants: [
+        rules: [
           (o) =>
             Math.abs(o.total - (o.subtotal + o.tax)) < 0.01 ||
             `total ${o.total} != subtotal ${o.subtotal} + tax ${o.tax}`,
@@ -245,7 +246,7 @@ describe("integration: error classification end-to-end", () => {
         if (attempt.repairs.length > 0) {
           receivedFix = attempt.repairs[0].content;
         }
-        if (attempt.number === 1) {
+        if (attempt.attempt === 1) {
           return "The data looks good, no issues found.";
         }
         return '{"data": "extracted"}';
