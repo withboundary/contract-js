@@ -162,7 +162,7 @@ describe("enforce", () => {
     }
   });
 
-  it("supports custom rules with INVARIANT_ERROR category", async () => {
+  it("supports custom rules with RULE_ERROR category", async () => {
     const result = await enforce(
       Schema,
       async () => {
@@ -179,7 +179,7 @@ describe("enforce", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.attempts[0].category).toBe("INVARIANT_ERROR");
+      expect(result.error.attempts[0].category).toBe("RULE_ERROR");
       expect(result.error.attempts[0].issues[0]).toBe("confidence too low");
     }
   });

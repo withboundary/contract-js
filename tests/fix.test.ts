@@ -85,16 +85,16 @@ describe("repair", () => {
     expect(messages[0].content).toContain("malformed JSON");
   });
 
-  it("generates a repair for INVARIANT_ERROR", () => {
+  it("generates a repair for RULE_ERROR", () => {
     const detail: AttemptDetail = {
       raw: '{"total": 90}',
       cleaned: { total: 90 },
       issues: ["total must be >= subtotal"],
-      category: "INVARIANT_ERROR",
+      category: "RULE_ERROR",
     };
 
     const messages = asMessages(repair(detail));
-    expect(messages[0].content).toContain("schema constraints");
+    expect(messages[0].content).toContain("rule constraints");
     expect(messages[0].content).toContain("total must be >= subtotal");
   });
 

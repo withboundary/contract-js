@@ -86,13 +86,13 @@ function defaultRepair(detail: AttemptDetail): Message[] {
         },
       ];
     }
-    case "INVARIANT_ERROR": {
+    case "RULE_ERROR": {
       const issueList = detail.issues.map((issue) => `- ${issue}`).join("\n");
       return [
         {
           role: "user",
           content: [
-            "Your response had valid types but violated schema constraints:",
+            "Your response had valid types but violated rule constraints:",
             issueList,
             "Please correct these issues and respond with valid JSON only.",
           ].join("\n"),
