@@ -2,6 +2,10 @@
   "name": "@withboundary/contract",
   "version": "1.2.0",
   "description": "Make LLM outputs correct, not just valid. Schema + rules + auto-repair.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/withboundary/contract-js.git"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
