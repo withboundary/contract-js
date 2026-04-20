@@ -36,7 +36,7 @@ function enforce<T>(
 | `maxAttempts` | `number` | `3` | Maximum number of attempts |
 | `backoff` | `"none" \| "linear" \| "exponential"` | `"none"` | Delay strategy between retries |
 | `backoffBaseMS` | `number` | `200` | Base delay in milliseconds |
-| `invariants` | `Array<(data: T) => true \| string>` | `[]` | Schema constraints Zod can't express (cross-field checks, conditional rules) |
+| `rules` | `Array<(data: T) => true \| string>` | `[]` | Constraints Zod can't express (cross-field checks, conditional logic, domain rules) |
 | `onAttempt` | `(event: AttemptEvent) => void` | — | Hook called after each attempt |
 | `repairs` | `Partial<Record<FailureCategory, RepairFn \| false>>` | — | Override or disable repair for specific failure categories |
 | `promptSuffix` | `string` | — | Appended to the auto-generated schema prompt. Use for domain-specific instructions without replacing the defaults |
@@ -104,15 +104,15 @@ clean('{"active": "true", "count": "3"}');       // { active: true, count: 3 }
 
 ---
 
-## `check(data, schema, invariants?)`
+## `check(data, schema, rules?)`
 
-Validates data against a Zod schema and optional invariants. Deterministic — no LLM involved.
+Validates data against a Zod schema and optional rules. Deterministic — no LLM involved.
 
 ```typescript
 function check<T>(
   data: unknown,
   schema: ZodType<T>,
-  invariants?: Invariant<T>[],
+  rules?: Rule<T>[],
 ): Result<T>
 ```
 
@@ -153,7 +153,7 @@ type FailureCategory =
   | "TRUNCATED"
   | "PARSE_ERROR"
   | "VALIDATION_ERROR"
-  | "INVARIANT_ERROR"
+  | "RULE_ERROR"
   | "RUN_ERROR"
 ```
 

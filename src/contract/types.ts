@@ -8,7 +8,7 @@ export type FailureCategory =
   | "TRUNCATED"
   | "PARSE_ERROR"
   | "VALIDATION_ERROR"
-  | "INVARIANT_ERROR"
+  | "RULE_ERROR"
   | "RUN_ERROR";
 
 export interface Message {

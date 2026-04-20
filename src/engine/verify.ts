@@ -38,7 +38,7 @@ export function verify<T>(
         typeof data === "string" ? data : JSON.stringify(data),
         data,
         ruleIssues,
-        "INVARIANT_ERROR",
+        "RULE_ERROR",
       );
       return failure(createContractError([detail]));
     }

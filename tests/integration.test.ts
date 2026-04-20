@@ -101,7 +101,7 @@ Let me know if you need anything else!`;
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.attempts[0].issues[0]).toContain("total 90");
-      expect(result.error.attempts[0].category).toBe("INVARIANT_ERROR");
+      expect(result.error.attempts[0].category).toBe("RULE_ERROR");
     }
   });
 });

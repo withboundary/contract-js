@@ -106,7 +106,7 @@ async function analyzeSentiment(text: string) {
 
 ---
 
-## Example 2: Invoice Extraction with Cross-Field Invariants
+## Example 2: Invoice Extraction with Cross-Field Rules
 
 ### Before
 
@@ -207,7 +207,7 @@ async function extractInvoice(pdfText: string) {
     });
     return res.choices[0].message.content;
   }, {
-    invariants: [
+    rules: [
       (d) => {
         const sum = d.lineItems.reduce((s, i) => s + i.amount, 0);
         return Math.abs(sum - d.subtotal) < 0.01
@@ -223,7 +223,7 @@ async function extractInvoice(pdfText: string) {
 **What changed:**
 
 - Schema validates every field — date format, nested array items, all number fields
-- Invariants enforce cross-field math: line items must sum to subtotal, subtotal + tax must equal total
+- Rules enforce cross-field math: line items must sum to subtotal, subtotal + tax must equal total
 - `clean` coerces `"250.00"` → `250` automatically — no wasted retry
 - `fix` generates specific messages: `line items sum to 400, but subtotal is 350`
 - Return type is fully inferred from the Zod schema
@@ -454,7 +454,7 @@ const result = await enforce(
   {
     maxAttempts: 5,
     backoff: "exponential",
-    invariants: [
+    rules: [
       (inv) => inv.total >= inv.subtotal || "total must be >= subtotal",
       (inv) => inv.lineItems.length > 0 || "must have at least one line item",
     ],
@@ -470,7 +470,7 @@ const result = await enforce(
 - Using Anthropic instead of OpenAI — `enforce` doesn't care, you own the call
 - 5 attempts instead of the default 3
 - Exponential backoff between retries
-- Custom invariants for structural constraints Zod can't express
+- Custom rules for structural constraints Zod can't express
 - Hook to observe each attempt
 
 ---
@@ -481,10 +481,10 @@ All examples in `examples/` simulate realistic LLM failures and show the full co
 
 | File | Domain | What it demonstrates |
 |------|--------|---------------------|
-| [`extraction.ts`](./examples/extraction.ts) | Invoice extraction | Cross-field math invariants, markdown fence cleaning, string-to-number coercion |
-| [`moderation.ts`](./examples/moderation.ts) | Content moderation | Policy consistency invariants (can't block with low confidence) |
-| [`classification.ts`](./examples/classification.ts) | Support ticket routing | Invariant-driven repair (empty tags, summary length) |
-| [`scoring.ts`](./examples/scoring.ts) | Lead scoring | Tier/score alignment invariants, truncated JSON recovery |
+| [`extraction.ts`](./examples/extraction.ts) | Invoice extraction | Cross-field math rules, markdown fence cleaning, string-to-number coercion |
+| [`moderation.ts`](./examples/moderation.ts) | Content moderation | Policy consistency rules (can't block with low confidence) |
+| [`classification.ts`](./examples/classification.ts) | Support ticket routing | Rule-driven repair (empty tags, summary length) |
+| [`scoring.ts`](./examples/scoring.ts) | Lead scoring | Tier/score alignment rules, truncated JSON recovery |
 | [`fallback.ts`](./examples/fallback.ts) | Contract review | Cheap-first fallback — contract boundary as escalation decision |
 | [`primitives.ts`](./examples/primitives.ts) | Individual functions | Using `clean`, `check`, `fix`, `select`, `prompt` standalone |
 
@@ -519,7 +519,7 @@ The library owns the contract. You own the call.
 
 ### Langfuse
 
-Trace each enforce call and every attempt as a Langfuse observation. See which invariants fire, how often, and whether prompt changes reduce them.
+Trace each enforce call and every attempt as a Langfuse observation. See which rules fire, how often, and whether prompt changes reduce them.
 
 ```typescript
 import { startActiveObservation, startObservation } from "@langfuse/tracing";
@@ -576,7 +576,7 @@ See [`examples/integration-otel.ts`](./examples/integration-otel.ts) for the ful
 
 ### Vercel AI SDK
 
-Use `enforce` with `generateText` to get invariants and targeted repair on top of your existing Vercel AI SDK setup. This replaces `generateObject` when you need cross-field validation.
+Use `enforce` with `generateText` to get rules and targeted repair on top of your existing Vercel AI SDK setup. This replaces `generateObject` when you need cross-field validation.
 
 ```typescript
 import { generateText } from "ai";
@@ -593,7 +593,7 @@ const result = await enforce(schema, async (attempt) => {
   });
   return text;
 }, {
-  invariants: [
+  rules: [
     (d) => Math.abs(d.subtotal + d.tax - d.total) < 0.01
       || `subtotal + tax != total`,
   ],
