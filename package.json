@@ -1,6 +1,6 @@
 {
   "name": "@withboundary/contract",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Make LLM outputs correct, not just valid. Schema + rules + auto-repair.",
   "repository": {
     "type": "git",
