@@ -28,7 +28,7 @@
     "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
