@@ -19,7 +19,7 @@ jobs:
       # publishing (needs npm >= 11.5.1). Node 22 bundles npm 10.x which
       # silently ignores OIDC env vars and falls back to anonymous publish
       # (resulting in an E404 from the registry).
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
