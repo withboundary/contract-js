@@ -99,13 +99,23 @@ export function createConsoleLogger<T = unknown>(
       print(...lines);
     },
     onVerifyFailure(ctx) {
+      const issuesBody = ctx.ruleIssues && ctx.ruleIssues.length > 0
+        ? ctx.ruleIssues
+            .map((issue) => {
+              const fields = issue.rule.fields && issue.rule.fields.length > 0
+                ? ` [${issue.rule.fields.join(", ")}]`
+                : "";
+              return `- ${issue.rule.name}${fields}: ${issue.message}`;
+            })
+            .join("\n")
+        : ctx.issues.map((issue) => `- ${issue}`).join("\n");
       print(
         heading(
           scoped(ctx.contractName),
           `Verification failed (attempt ${ctx.attempt})`,
         ),
         `Category: ${ctx.category}`,
-        `Issues:\n${ctx.issues.map((issue) => `- ${issue}`).join("\n")}`,
+        `Issues:\n${issuesBody}`,
         `Duration: ${ctx.durationMs}ms`,
       );
     },

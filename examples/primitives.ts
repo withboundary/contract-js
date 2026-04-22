@@ -48,7 +48,11 @@ const invalid = verify({ name: "Alice", age: -5 }, Schema);
 console.log("Invalid:", invalid.ok);
 
 const withRules = verify({ name: "Alice", age: 10 }, Schema, [
-  (d) => d.age >= 18 || "must be 18 or older",
+  {
+    name: "age_adult",
+    fields: ["age"],
+    check: (d) => d.age >= 18 || "must be 18 or older",
+  },
 ]);
 console.log("Rule failed:", !withRules.ok);
 

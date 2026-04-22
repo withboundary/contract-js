@@ -62,25 +62,34 @@ async function main() {
     name: "content-moderation",
     schema: ModerationSchema,
     rules: [
-      // blocking requires high confidence — prevent false positives
-      (decision: Moderation) =>
-        decision.confidence >= 0.7 || decision.action !== "block"
-          || `cannot block with confidence ${decision.confidence} (minimum 0.7)`,
-
-      // if you're flagging or blocking, explain why
-      (decision: Moderation) =>
-        decision.action === "allow" || decision.reason.length > 10
-          || "blocked or flagged content must have a meaningful reason",
-
-      // non-allow decisions must cite at least one policy category
-      (decision: Moderation) =>
-        decision.action === "allow" || decision.categories.length > 0
-          || "non-allow decisions must specify at least one category",
-
-      // allow + categories is contradictory
-      (decision: Moderation) =>
-        decision.action !== "allow" || decision.categories.length === 0
-          || "action is allow but categories are non-empty — contradictory",
+      {
+        name: "block_requires_high_confidence",
+        fields: ["confidence", "action"],
+        check: (decision: Moderation) =>
+          decision.confidence >= 0.7 || decision.action !== "block"
+            || `cannot block with confidence ${decision.confidence} (minimum 0.7)`,
+      },
+      {
+        name: "non_allow_requires_reason",
+        fields: ["action", "reason"],
+        check: (decision: Moderation) =>
+          decision.action === "allow" || decision.reason.length > 10
+            || "blocked or flagged content must have a meaningful reason",
+      },
+      {
+        name: "non_allow_requires_category",
+        fields: ["action", "categories"],
+        check: (decision: Moderation) =>
+          decision.action === "allow" || decision.categories.length > 0
+            || "non-allow decisions must specify at least one category",
+      },
+      {
+        name: "allow_has_no_categories",
+        fields: ["action", "categories"],
+        check: (decision: Moderation) =>
+          decision.action !== "allow" || decision.categories.length === 0
+            || "action is allow but categories are non-empty — contradictory",
+      },
     ],
     onAttempt: (event) => {
       const status = event.ok ? "PASS" : `FAIL — ${event.category}`;

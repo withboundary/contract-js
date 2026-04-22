@@ -4,7 +4,9 @@ import type {
   FailureCategory,
   Message,
   ContractResult,
+  RuleDefinition,
   RunFn,
+  SchemaField,
 } from "./types.js";
 import type { NormalizedContractOptions } from "./normalizeOptions.js";
 import type { ContractLogger } from "../logger/types.js";
@@ -21,11 +23,20 @@ import {
 } from "../result/failure.js";
 import { success } from "../result/success.js";
 
+type DescribeFn = () => { schema: SchemaField[]; rules: RuleDefinition[] };
+
+// Contracts emit their schema + rule metadata on the first run per process so
+// the backend has a chance to populate contracts.schema_json and the rules
+// table. Subsequent runs omit it (backend COALESCEs, but sending every time
+// is wasteful). Keyed by contract identity (the `describe` closure).
+const emittedDescribe = new WeakSet<DescribeFn>();
+
 export async function runContract<T>(
   contractName: string,
   schema: ZodType<T>,
   run: RunFn,
   options: NormalizedContractOptions<T>,
+  describe?: DescribeFn,
 ): Promise<ContractResult<T>> {
   const logger = options.logger;
   let schemaInstructions = buildInstructions(schema);
@@ -39,12 +50,17 @@ export async function runContract<T>(
   let previousCategory: FailureCategory | undefined;
 
   const totalStart = Date.now();
+  const description =
+    describe && !emittedDescribe.has(describe) ? describe() : undefined;
+  if (description && describe) emittedDescribe.add(describe);
+
   emitLogger(logger, "onRunStart", {
     contractName,
     maxAttempts: options.retry.maxAttempts,
     rulesCount: options.rules?.length ?? 0,
     model: options.model,
     retry: options.retry,
+    ...(description ? { schema: description.schema, rules: description.rules } : {}),
   });
 
   for (let attemptNum = 1; attemptNum <= options.retry.maxAttempts; attemptNum++) {
@@ -180,12 +196,14 @@ export async function runContract<T>(
       cleaned,
       verifyDetail?.issues ?? [],
       verifyDetail?.category ?? "VALIDATION_ERROR",
+      verifyDetail?.ruleIssues,
     );
     emitLogger(logger, "onVerifyFailure", {
       contractName,
       attempt: attemptNum,
       category: detail.category,
       issues: detail.issues,
+      ...(detail.ruleIssues ? { ruleIssues: detail.ruleIssues } : {}),
       durationMs: Date.now() - start,
     });
     const handled = handleFailure(

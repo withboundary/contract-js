@@ -32,7 +32,10 @@ export type {
   RetryOptions,
   RetryPolicy,
   Rule,
+  RuleDefinition,
+  RuleIssue,
   RunFn,
+  SchemaField,
 } from "./contract/types.js";
 
 export type { ContractLogger, ConsoleLoggerOptions } from "./logger/types.js";

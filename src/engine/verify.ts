@@ -1,5 +1,5 @@
 import type { ZodError, ZodType } from "zod";
-import type { Rule, ContractResult } from "../contract/types.js";
+import type { Rule, ContractResult, RuleIssue } from "../contract/types.js";
 import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
 import { success } from "../result/success.js";
 
@@ -24,21 +24,28 @@ export function verify<T>(
   const typed = parseResult.data;
 
   if (rules && rules.length > 0) {
-    const ruleIssues: string[] = [];
+    const ruleIssues: RuleIssue[] = [];
 
     for (const rule of rules) {
-      const result = rule(typed);
-      if (result !== true) {
-        ruleIssues.push(result);
-      }
+      const result = rule.check(typed);
+      if (result === true) continue;
+      const message =
+        typeof result === "string" && result.length > 0
+          ? result
+          : rule.message ?? "Rule failed";
+      ruleIssues.push({
+        rule: { name: rule.name, ...(rule.fields ? { fields: rule.fields } : {}) },
+        message,
+      });
     }
 
     if (ruleIssues.length > 0) {
       const detail = createAttemptDetail(
         typeof data === "string" ? data : JSON.stringify(data),
         data,
-        ruleIssues,
+        ruleIssues.map((i) => i.message),
         "RULE_ERROR",
+        ruleIssues,
       );
       return failure(createContractError([detail]));
     }

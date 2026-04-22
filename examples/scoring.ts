@@ -58,24 +58,33 @@ async function main() {
     name: "lead-scoring",
     schema: LeadSchema,
     rules: [
-      // hot leads must have a high score
-      (lead: Lead) =>
-        lead.tier !== "hot" || lead.score >= 70
-          || `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
-
-      // cold leads must have a low score
-      (lead: Lead) =>
-        lead.tier !== "cold" || lead.score < 30
-          || `tier is "cold" but score is ${lead.score} (must be under 30 for cold)`,
-
-      // can't close a deal on an unqualified lead
-      (lead: Lead) =>
-        lead.nextAction !== "close" || lead.qualified
-          || 'nextAction is "close" but lead is not qualified',
-
-      // every scoring decision needs evidence
-      (lead: Lead) =>
-        lead.signals.length > 0 || "must cite at least one signal",
+      {
+        name: "hot_requires_high_score",
+        fields: ["tier", "score"],
+        check: (lead: Lead) =>
+          lead.tier !== "hot" || lead.score >= 70
+            || `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
+      },
+      {
+        name: "cold_requires_low_score",
+        fields: ["tier", "score"],
+        check: (lead: Lead) =>
+          lead.tier !== "cold" || lead.score < 30
+            || `tier is "cold" but score is ${lead.score} (must be under 30 for cold)`,
+      },
+      {
+        name: "close_requires_qualified",
+        fields: ["nextAction", "qualified"],
+        check: (lead: Lead) =>
+          lead.nextAction !== "close" || lead.qualified
+            || 'nextAction is "close" but lead is not qualified',
+      },
+      {
+        name: "signals_not_empty",
+        fields: ["signals"],
+        check: (lead: Lead) =>
+          lead.signals.length > 0 || "must cite at least one signal",
+      },
     ],
     onAttempt: (event) => {
       const status = event.ok ? "PASS" : `FAIL — ${event.category}`;

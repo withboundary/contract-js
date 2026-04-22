@@ -1,3 +1,5 @@
+import type { RuleDefinition, RuleIssue, SchemaField } from "../contract/types.js";
+
 export type RetryBackoffMode = "none" | "linear" | "exponential";
 
 export interface ConsoleLoggerOptions {
@@ -26,6 +28,11 @@ export type ContractLogger<T = unknown> = {
       backoff: RetryBackoffMode;
       baseMs: number;
     };
+    // Populated on the first run per contract per process — the flat schema
+    // and rule metadata. Sinks that persist contract shape (e.g. the Boundary
+    // SDK) forward these; most loggers can ignore them.
+    schema?: SchemaField[];
+    rules?: RuleDefinition[];
   }) => void;
   onAttemptStart?: (ctx: {
     contractName: string;
@@ -55,6 +62,10 @@ export type ContractLogger<T = unknown> = {
     attempt: number;
     category: string;
     issues: string[];
+    // Structured per-rule failures, populated when category === "RULE_ERROR".
+    // Standalone consumers can use these to attribute failures without
+    // parsing strings; the SDK forwards them as `ruleFailures` on events.
+    ruleIssues?: RuleIssue[];
     durationMs: number;
   }) => void;
   onRepairGenerated?: (ctx: {

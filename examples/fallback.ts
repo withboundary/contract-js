@@ -47,10 +47,13 @@ async function analyzeCheap() {
     schema: AnalysisSchema,
     retry: { maxAttempts: 2 },
     rules: [
-      // if you're not approving, you need to explain what's risky
-      (analysis: Analysis) =>
-        analysis.risks.length > 0 || analysis.recommendation === "approve"
-          || "non-approve recommendation must cite at least one risk",
+      {
+        name: "non_approve_requires_risks",
+        fields: ["risks", "recommendation"],
+        check: (analysis: Analysis) =>
+          analysis.risks.length > 0 || analysis.recommendation === "approve"
+            || "non-approve recommendation must cite at least one risk",
+      },
     ],
     onAttempt: (event) => {
       const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
@@ -67,10 +70,13 @@ async function analyzeStrong() {
     name: "analysis-strong",
     schema: AnalysisSchema,
     rules: [
-      // if you're not approving, you need to explain what's risky
-      (analysis: Analysis) =>
-        analysis.risks.length > 0 || analysis.recommendation === "approve"
-          || "non-approve recommendation must cite at least one risk",
+      {
+        name: "non_approve_requires_risks",
+        fields: ["risks", "recommendation"],
+        check: (analysis: Analysis) =>
+          analysis.risks.length > 0 || analysis.recommendation === "approve"
+            || "non-approve recommendation must cite at least one risk",
+      },
     ],
     onAttempt: (event) => {
       const status = event.ok ? "PASS" : `FAIL — ${event.category}`;
