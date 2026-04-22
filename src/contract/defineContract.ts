@@ -7,6 +7,7 @@ import type {
 } from "./types.js";
 import { mergeOptions } from "./normalizeOptions.js";
 import { runContract } from "./runContract.js";
+import { inferRuleFields } from "../utils/inferRuleFields.js";
 import { zodToSchemaFields } from "./zodToSchemaFields.js";
 
 // Caps mirror the ingest Zod validators in apps/api/src/routes/ingest.ts.
@@ -85,13 +86,23 @@ export function rulesToDefinitions<T>(rules: Rule<T>[] | undefined): RuleDefinit
     if (rule.description) {
       def.description = clamp(rule.description, MAX_RULE_DESCRIPTION);
     }
-    if (rule.fields && rule.fields.length > 0) {
-      def.fields = rule.fields
+    const fields = resolveRuleFields(rule);
+    if (fields && fields.length > 0) {
+      def.fields = fields
         .slice(0, MAX_RULE_FIELDS)
         .map((f) => clamp(f, MAX_RULE_FIELD));
     }
     return def;
   });
+}
+
+// Prefer explicit `rule.fields`; fall back to inference from the check source.
+// The inference path keeps the common case (`(d) => d.x > 0`) zero-boilerplate
+// while still letting users override for rules the parser can't read (helpers,
+// minified bundles).
+export function resolveRuleFields<T>(rule: Rule<T>): string[] | undefined {
+  if (rule.fields && rule.fields.length > 0) return rule.fields;
+  return inferRuleFields(rule.check);
 }
 
 function stringifyCheck(check: unknown): string | undefined {

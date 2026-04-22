@@ -139,6 +139,22 @@ describe("verify", () => {
       }
     });
 
+    it("infers rule fields from the check function when omitted", () => {
+      // Rule has no explicit `fields` — the engine should parse the check
+      // source and derive `["age"]` on its own.
+      const result = verify({ name: "Alice", age: 10 }, Schema, [
+        {
+          name: "age_adult",
+          check: (data) => data.age >= 18 || "must be 18 or older",
+        },
+      ]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        const ruleIssues = result.error.attempts[0].ruleIssues;
+        expect(ruleIssues![0]!.rule.fields).toEqual(["age"]);
+      }
+    });
+
     it("collects multiple rule failures", () => {
       const result = verify({ name: "Alice", age: 10 }, Schema, [
         {

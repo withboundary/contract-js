@@ -4,6 +4,7 @@ import type {
   Rule,
   RuleIssue,
 } from "../contract/types.js";
+import { inferRuleFields } from "../utils/inferRuleFields.js";
 import { safeParse } from "../utils/zodCompat.js";
 import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
 import { success } from "../result/success.js";
@@ -38,8 +39,15 @@ export function verify<T>(
         typeof result === "string" && result.length > 0
           ? result
           : rule.message ?? "Rule failed";
+      const fields =
+        rule.fields && rule.fields.length > 0
+          ? rule.fields
+          : inferRuleFields(rule.check);
       ruleIssues.push({
-        rule: { name: rule.name, ...(rule.fields ? { fields: rule.fields } : {}) },
+        rule: {
+          name: rule.name,
+          ...(fields && fields.length > 0 ? { fields } : {}),
+        },
         message,
       });
     }

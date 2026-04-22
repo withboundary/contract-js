@@ -75,6 +75,31 @@ describe("contract.describe()", () => {
     expect(rules[2]!.description).toBe("v must be an integer");
   });
 
+  it("infers rule fields from the check source when omitted", () => {
+    const contract = defineContract({
+      name: "inference",
+      schema: z.object({ score: z.number(), tier: z.string() }),
+      rules: [
+        // No `fields` — parser derives ["score"] from the arrow source.
+        { name: "score_threshold", check: (d) => d.score >= 90 || "low" },
+        // No `fields` — parser derives ["score", "tier"] from the compound expr.
+        { name: "combo", check: (d) => d.score > 0 && d.tier !== "cold" },
+        // Explicit `fields` always wins — don't run inference when the user
+        // already knows what they want (e.g. the helper path below would
+        // otherwise yield undefined).
+        {
+          name: "with_helper",
+          fields: ["score"],
+          check: (d) => JSON.stringify(d).length > 0,
+        },
+      ],
+    });
+    const rules = contract.describe().rules;
+    expect(rules[0]!.fields).toEqual(["score"]);
+    expect(rules[1]!.fields?.sort()).toEqual(["score", "tier"]);
+    expect(rules[2]!.fields).toEqual(["score"]);
+  });
+
   it("is cached across calls", () => {
     const contract = defineContract({
       name: "x",
