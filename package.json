@@ -13,13 +13,21 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./openai": {
+      "import": "./dist/providers/openai.js",
+      "types": "./dist/providers/openai.d.ts"
+    },
+    "./anthropic": {
+      "import": "./dist/providers/anthropic.js",
+      "types": "./dist/providers/anthropic.d.ts"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup src/index.ts src/providers/openai.ts src/providers/anthropic.ts --format esm --dts --clean",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
@@ -28,11 +36,21 @@
     "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.30",
+    "openai": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "openai": { "optional": true }
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@changesets/cli": "^2.29.8",
+    "openai": "^6.34.0",
     "tsup": "^8.5.1",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
