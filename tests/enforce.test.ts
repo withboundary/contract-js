@@ -172,7 +172,11 @@ describe("enforce", () => {
         name: NAME,
         retry: { maxAttempts: 1 },
         rules: [
-          (d) => d.confidence >= 0.5 || "confidence too low",
+          {
+            name: "confidence_threshold",
+            fields: ["confidence"],
+            check: (d) => d.confidence >= 0.5 || "confidence too low",
+          },
         ],
       },
     );

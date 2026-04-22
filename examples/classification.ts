@@ -56,14 +56,21 @@ async function main() {
     schema: TicketSchema,
     debug: true,
     rules: [
-      // every ticket needs at least one tag for routing
-      (ticket: Ticket) =>
-        ticket.tags.length > 0 || "must have at least one tag",
-
-      // summaries must be concise enough for the queue view
-      (ticket: Ticket) =>
-        ticket.summary.length <= 200
-          || `summary too long: ${ticket.summary.length} chars (max 200)`,
+      {
+        name: "has_tags",
+        description: "Every ticket must carry at least one routing tag",
+        fields: ["tags"],
+        check: (ticket: Ticket) =>
+          ticket.tags.length > 0 || "must have at least one tag",
+      },
+      {
+        name: "summary_length",
+        description: "Summaries stay under 200 chars for the queue view",
+        fields: ["summary"],
+        check: (ticket: Ticket) =>
+          ticket.summary.length <= 200
+            || `summary too long: ${ticket.summary.length} chars (max 200)`,
+      },
     ],
     onAttempt: (event) => {
       const status = event.ok ? "PASS" : `FAIL — ${event.category}`;

@@ -171,8 +171,14 @@ describe("logger", () => {
         name: NAME,
         logger,
         rules: [
-          (d) => d.confidence >= 0.5 || "confidence too low",
-          (d) => d.sentiment !== "neutral" || "neutral not allowed",
+          {
+            name: "confidence_threshold",
+            check: (d) => d.confidence >= 0.5 || "confidence too low",
+          },
+          {
+            name: "sentiment_not_neutral",
+            check: (d) => d.sentiment !== "neutral" || "neutral not allowed",
+          },
         ],
       },
     );

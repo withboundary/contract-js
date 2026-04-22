@@ -16,6 +16,35 @@ export interface Message {
   content: string;
 }
 
+// Flat description of a contract's output schema, emitted once per contract
+// so the Boundary dashboard can render the contract's shape. Also useful
+// standalone via `contract.describe()` — dump to README, OpenAPI, etc.
+export interface SchemaField {
+  name: string;
+  type: string;
+  constraints?: string;
+}
+
+// Wire shape for a rule's metadata. Emitted alongside `schema` so the backend
+// can render a readable rule list and join failure counts by `name`.
+export interface RuleDefinition {
+  name: string;
+  expression?: string;
+  description?: string;
+  fields?: string[];
+}
+
+// Structured failure produced by a single rule. Carries the rule's stable
+// name + fields so any consumer (console, Sentry, Datadog, custom logger)
+// can attribute the failure without parsing strings.
+export interface RuleIssue {
+  rule: {
+    name: string;
+    fields?: string[];
+  };
+  message: string;
+}
+
 // Wire format that @withboundary/sdk sends to the Boundary cloud. Exported
 // here (not in the SDK) so the SDK can re-export without duplicating types
 // and so anyone building a custom sink has a canonical shape to target.
@@ -37,6 +66,9 @@ export interface BoundaryLogEvent {
   // failure details (capture.errors, default ON)
   category?: FailureCategory;
   issues?: string[];
+  // Rule names that failed on this attempt. Lets the backend attribute
+  // failures to specific rules (joins to rule_failure_counts.rule_key).
+  ruleFailures?: string[];
 
   // repair context (capture.repairs, default ON)
   repairs?: Message[];
@@ -50,15 +82,20 @@ export interface BoundaryLogEvent {
   // `contract.accept(run, { model })`.
   model?: string;
 
-  // Number of rules defined on the contract at runtime. Latest-seen —
-  // every event carries the current count.
-  rulesCount?: number;
+  // Contract shape metadata. Emitted on the first event per contract per
+  // process — backend COALESCEs into contracts.schema_json and the rules
+  // table, so re-sending is safe but wasteful.
+  schema?: SchemaField[];
+  rules?: RuleDefinition[];
 }
 
 export interface AttemptDetail {
   raw: string;
   cleaned: unknown;
   issues: string[];
+  // Populated when category === "RULE_ERROR" — structured per-rule failures.
+  // Parallel to `issues` (one entry per failed rule) but typed.
+  ruleIssues?: RuleIssue[];
   category: FailureCategory;
 }
 
@@ -76,7 +113,35 @@ export interface ContractAttempt {
   previousCategory?: FailureCategory;
 }
 
-export type Rule<T> = (data: T) => true | string;
+// A rule is a named predicate over the contract's output data.
+//
+// - `name`        stable machine key. Unique within a contract. Joins to
+//                 backend rule_failure_counts.rule_key; never display text.
+// - `description` human label for UI, docs, and diffs. This is what the
+//                 dashboard renders and what readable rule diffs compare
+//                 against. Phrased as a positive statement of what the rule
+//                 ensures ("Hot leads must have score > 70"), not as an
+//                 error.
+// - `check`       the predicate. Return shape:
+//                   `true`   → pass
+//                   `false`  → fail, use `rule.message` (or "Rule failed")
+//                   string   → fail, use the returned string — overrides
+//                              `rule.message` for that specific failure so
+//                              rules can produce dynamic per-failure text
+//                              like `confidence too low: 0.42`
+// - `message`     static fallback failure text shown when `check` returns
+//                 false. Separate from `description`: description is what
+//                 the rule *is*, message is what to *say when it fails*.
+// - `fields`      which output fields the rule touches. Powers per-field
+//                 grouping in the dashboard and field-aware repair hints.
+export interface Rule<T> {
+  name: string;
+  description?: string;
+  check: (data: T) => boolean | string;
+  message?: string;
+  fields?: string[];
+}
+
 export type RepairFn = (detail: AttemptDetail) => Message[];
 
 export interface AttemptEvent {
@@ -144,6 +209,9 @@ export interface DefinedContract<T> {
     run: RunFn,
     runtimeOptions?: ContractOptions<T>,
   ) => Promise<ContractResult<T>>;
+  // Standalone introspection — returns the flat schema + rule metadata the
+  // contract emits on its first event. Safe to call without running. Cached.
+  describe: () => { schema: SchemaField[]; rules: RuleDefinition[] };
 }
 
 export interface ContractConfig<T> extends ContractOptions<T> {

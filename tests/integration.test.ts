@@ -91,9 +91,13 @@ Let me know if you need anything else!`;
         name: "order-math",
         retry: { maxAttempts: 1 },
         rules: [
-          (o) =>
-            Math.abs(o.total - (o.subtotal + o.tax)) < 0.01 ||
-            `total ${o.total} != subtotal ${o.subtotal} + tax ${o.tax}`,
+          {
+            name: "total_matches",
+            fields: ["total", "subtotal", "tax"],
+            check: (o) =>
+              Math.abs(o.total - (o.subtotal + o.tax)) < 0.01 ||
+              `total ${o.total} != subtotal ${o.subtotal} + tax ${o.tax}`,
+          },
         ],
       },
     );

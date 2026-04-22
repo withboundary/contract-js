@@ -3,6 +3,7 @@ import type {
   ContractError,
   Failure,
   FailureCategory,
+  RuleIssue,
 } from "../contract/types.js";
 
 export function failure(error: ContractError): Failure {
@@ -26,8 +27,15 @@ export function createAttemptDetail(
   cleaned: unknown,
   issues: string[],
   category: FailureCategory,
+  ruleIssues?: RuleIssue[],
 ): AttemptDetail {
-  return { raw, cleaned, issues, category };
+  return {
+    raw,
+    cleaned,
+    issues,
+    category,
+    ...(ruleIssues && ruleIssues.length > 0 ? { ruleIssues } : {}),
+  };
 }
 
 export class ContractValidationError extends Error {

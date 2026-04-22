@@ -112,40 +112,76 @@ describe("verify", () => {
   describe("rules", () => {
     it("passes when rules pass", () => {
       const result = verify({ name: "Alice", age: 30 }, Schema, [
-        (data) => data.age >= 18 || "must be 18 or older",
+        {
+          name: "age_adult",
+          check: (data) => data.age >= 18 || "must be 18 or older",
+        },
       ]);
       expect(result.ok).toBe(true);
     });
 
-    it("fails when a rule fails", () => {
+    it("fails when a rule fails and exposes structured ruleIssues", () => {
       const result = verify({ name: "Alice", age: 10 }, Schema, [
-        (data) => data.age >= 18 || "must be 18 or older",
+        {
+          name: "age_adult",
+          fields: ["age"],
+          check: (data) => data.age >= 18 || "must be 18 or older",
+        },
       ]);
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.attempts[0].issues[0]).toBe(
-          "must be 18 or older",
-        );
+        expect(result.error.attempts[0].issues[0]).toBe("must be 18 or older");
+        const ruleIssues = result.error.attempts[0].ruleIssues;
+        expect(ruleIssues).toHaveLength(1);
+        expect(ruleIssues![0]!.rule.name).toBe("age_adult");
+        expect(ruleIssues![0]!.rule.fields).toEqual(["age"]);
+        expect(ruleIssues![0]!.message).toBe("must be 18 or older");
       }
     });
 
     it("collects multiple rule failures", () => {
       const result = verify({ name: "Alice", age: 10 }, Schema, [
-        (data) => data.age >= 18 || "must be 18 or older",
-        (data) => data.name.length > 10 || "name too short",
+        {
+          name: "age_adult",
+          check: (data) => data.age >= 18 || "must be 18 or older",
+        },
+        {
+          name: "name_length",
+          check: (data) => data.name.length > 10 || "name too short",
+        },
       ]);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.attempts[0].issues).toHaveLength(2);
+        expect(result.error.attempts[0].ruleIssues).toHaveLength(2);
+      }
+    });
+
+    it("falls back to rule.message when check returns non-string", () => {
+      const result = verify({ name: "Alice", age: 10 }, Schema, [
+        {
+          name: "age_adult",
+          message: "must be an adult",
+          check: (data) => data.age >= 18,
+        },
+      ]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.attempts[0].ruleIssues![0]!.message).toBe(
+          "must be an adult",
+        );
       }
     });
 
     it("does not run rules when schema validation fails", () => {
       let ruleCalled = false;
       const result = verify({ name: 123 }, Schema, [
-        () => {
-          ruleCalled = true;
-          return true;
+        {
+          name: "always_true",
+          check: () => {
+            ruleCalled = true;
+            return true;
+          },
         },
       ]);
       expect(result.ok).toBe(false);
