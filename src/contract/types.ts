@@ -1,5 +1,11 @@
-import type { ZodType } from "zod";
+import type * as z3 from "zod/v3";
+import type * as z4 from "zod/v4/core";
 import type { ContractLogger } from "../logger/types.js";
+
+// Accept either a zod v3 or zod v4 schema. Users are on whichever zod their
+// app has installed; the peer-dep range is `^3.25.0 || ^4.0.0`. Generic `T`
+// is the inferred output type either arm produces.
+export type ContractSchema<T> = z3.ZodType<T> | z4.$ZodType<T>;
 
 export type FailureCategory =
   | "EMPTY_RESPONSE"
@@ -221,5 +227,5 @@ export interface ContractConfig<T> extends ContractOptions<T> {
   // want to see in a log line: "lead-scoring", "invoice-extraction",
   // "agent-action-validation".
   name: string;
-  schema: ZodType<T>;
+  schema: ContractSchema<T>;
 }

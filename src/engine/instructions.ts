@@ -1,21 +1,19 @@
 import {
-  type ZodType,
-  ZodArray,
-  ZodBoolean,
-  ZodDefault,
-  ZodEffects,
-  ZodEnum,
-  ZodLiteral,
-  ZodNativeEnum,
-  ZodNullable,
-  ZodNumber,
-  ZodObject,
-  ZodOptional,
-  ZodString,
-  ZodUnion,
-} from "zod";
+  kindOf,
+  unwrapOne,
+  getStringInfo,
+  getNumberInfo,
+  getObjectShape,
+  getArrayElement,
+  getEnumOptions,
+  getNativeEnumValues,
+  getLiteralValue,
+  getUnionOptions,
+  type AnyZodSchema,
+  type SchemaKind,
+} from "../utils/zodCompat.js";
 
-export function instructions(schema: ZodType): string {
+export function instructions(schema: AnyZodSchema): string {
   const shape = describeSchema(schema, 0);
   return [
     "Respond with valid JSON matching this structure exactly.",
@@ -28,66 +26,61 @@ export function instructions(schema: ZodType): string {
   ].join("\n");
 }
 
-function describeSchema(schema: ZodType, depth: number): string {
+function describeSchema(schema: AnyZodSchema, depth: number): string {
   const indent = "  ".repeat(depth);
-  const unwrapped = unwrap(schema);
+  const unwrapped = unwrapAllWrappers(schema);
+  const kind = kindOf(unwrapped);
 
-  if (unwrapped instanceof ZodObject) {
-    return describeObject(unwrapped, depth);
+  switch (kind) {
+    case "object":
+      return describeObject(unwrapped, depth);
+    case "array": {
+      const element = getArrayElement(unwrapped);
+      const itemDesc = element ? describeSchema(element, depth + 1) : `${indent}  any`;
+      return `${indent}array of:\n${itemDesc}`;
+    }
+    case "enum": {
+      const values = (getEnumOptions(unwrapped) ?? [])
+        .map((v) => `"${v}"`)
+        .join(" | ");
+      return `${indent}one of: ${values}`;
+    }
+    case "nativeEnum": {
+      const values = (getNativeEnumValues(unwrapped) ?? [])
+        .map((v) => `"${v}"`)
+        .join(" | ");
+      return `${indent}one of: ${values}`;
+    }
+    case "literal":
+      return `${indent}exactly: ${JSON.stringify(getLiteralValue(unwrapped))}`;
+    case "union": {
+      const opts = getUnionOptions(unwrapped) ?? [];
+      return opts.map((o) => describeSchema(o, depth)).join(" | ");
+    }
+    case "string": {
+      const constraints = describeStringConstraints(unwrapped);
+      return `${indent}string${constraints ? ` (${constraints})` : ""}`;
+    }
+    case "number": {
+      const constraints = describeNumberConstraints(unwrapped);
+      return `${indent}number${constraints ? ` (${constraints})` : ""}`;
+    }
+    case "boolean":
+      return `${indent}boolean`;
+    default:
+      return `${indent}any`;
   }
-  if (unwrapped instanceof ZodArray) {
-    const itemDesc = describeSchema(unwrapped.element, depth + 1);
-    return `${indent}array of:\n${itemDesc}`;
-  }
-  if (unwrapped instanceof ZodEnum) {
-    const values = (unwrapped.options as string[])
-      .map((value) => `"${value}"`)
-      .join(" | ");
-    return `${indent}one of: ${values}`;
-  }
-  if (unwrapped instanceof ZodNativeEnum) {
-    const values = Object.values(
-      unwrapped.enum as Record<string, string | number>,
-    )
-      .filter((value) => typeof value === "string")
-      .map((value) => `"${value}"`)
-      .join(" | ");
-    return `${indent}one of: ${values}`;
-  }
-  if (unwrapped instanceof ZodLiteral) {
-    return `${indent}exactly: ${JSON.stringify(unwrapped.value)}`;
-  }
-  if (unwrapped instanceof ZodUnion) {
-    const options = (unwrapped.options as ZodType[])
-      .map((option) => describeSchema(option, depth))
-      .join(" | ");
-    return options;
-  }
-  if (unwrapped instanceof ZodString) {
-    const constraints = describeStringConstraints(unwrapped);
-    return `${indent}string${constraints ? ` (${constraints})` : ""}`;
-  }
-  if (unwrapped instanceof ZodNumber) {
-    const constraints = describeNumberConstraints(unwrapped);
-    return `${indent}number${constraints ? ` (${constraints})` : ""}`;
-  }
-  if (unwrapped instanceof ZodBoolean) {
-    return `${indent}boolean`;
-  }
-
-  return `${indent}any`;
 }
 
-function describeObject(schema: ZodObject<any>, depth: number): string {
+function describeObject(schema: AnyZodSchema, depth: number): string {
   const indent = "  ".repeat(depth);
-  const shape = schema.shape;
+  const shape = getObjectShape(schema) ?? {};
   const lines: string[] = [`${indent}{`];
 
   for (const [key, value] of Object.entries(shape)) {
-    const fieldSchema = value as ZodType;
-    const optional = isOptional(fieldSchema);
+    const optional = isOptionalLike(value);
     const suffix = optional ? " (optional)" : "";
-    const desc = describeSchema(fieldSchema, 0).trim();
+    const desc = describeSchema(value, 0).trim();
     lines.push(`${indent}  "${key}": ${desc}${suffix}`);
   }
 
@@ -95,89 +88,62 @@ function describeObject(schema: ZodObject<any>, depth: number): string {
   return lines.join("\n");
 }
 
-function describeStringConstraints(schema: ZodString): string {
-  const checks = (schema as any)._def?.checks as
-    | Array<{ kind: string; value?: unknown; regex?: RegExp }>
-    | undefined;
-  if (!checks || checks.length === 0) {
-    return "";
-  }
-
+function describeStringConstraints(schema: AnyZodSchema): string {
+  const info = getStringInfo(schema);
   const parts: string[] = [];
-  for (const check of checks) {
-    switch (check.kind) {
-      case "min":
-        parts.push(`min length: ${check.value}`);
-        break;
-      case "max":
-        parts.push(`max length: ${check.value}`);
-        break;
-      case "email":
-        parts.push("email format");
-        break;
-      case "url":
-        parts.push("URL format");
-        break;
-      case "uuid":
-        parts.push("UUID format");
-        break;
-      case "regex":
-        parts.push(`pattern: ${check.regex}`);
-        break;
-    }
+  if (typeof info.minLength === "number") {
+    parts.push(`min length: ${info.minLength}`);
   }
-
+  if (typeof info.maxLength === "number") {
+    parts.push(`max length: ${info.maxLength}`);
+  }
+  if (info.formats.has("email")) parts.push("email format");
+  if (info.formats.has("url")) parts.push("URL format");
+  if (info.formats.has("uuid")) parts.push("UUID format");
+  if (info.regex) parts.push(`pattern: ${info.regex}`);
   return parts.join(", ");
 }
 
-function describeNumberConstraints(schema: ZodNumber): string {
-  const checks = (schema as any)._def?.checks as
-    | Array<{ kind: string; value?: number }>
-    | undefined;
-  if (!checks || checks.length === 0) {
-    return "";
-  }
-
+function describeNumberConstraints(schema: AnyZodSchema): string {
+  const info = getNumberInfo(schema);
   const parts: string[] = [];
-  for (const check of checks) {
-    switch (check.kind) {
-      case "min":
-        parts.push(`>= ${check.value}`);
-        break;
-      case "max":
-        parts.push(`<= ${check.value}`);
-        break;
-      case "int":
-        parts.push("integer");
-        break;
-    }
-  }
-
+  if (typeof info.min === "number") parts.push(`>= ${info.min}`);
+  if (typeof info.max === "number") parts.push(`<= ${info.max}`);
+  if (info.int) parts.push("integer");
   return parts.join(", ");
 }
 
-function isOptional(schema: ZodType): boolean {
-  if (schema instanceof ZodOptional) {
-    return true;
-  }
-  if (schema instanceof ZodDefault) {
-    return true;
-  }
+// Optional-like = the field can be omitted. Covers Optional and Default
+// wrappers (both allow the key to be missing); keeps Nullable out (null is
+// a required value, not a missing key).
+function isOptionalLike(schema: AnyZodSchema): boolean {
+  const kind = kindOf(schema);
+  if (kind === "optional" || kind === "default") return true;
   return false;
 }
 
-function unwrap(schema: ZodType): ZodType {
-  if (schema instanceof ZodOptional) {
-    return unwrap(schema.unwrap());
+// Peel wrappers that affect only the "is it required" question, so
+// describe logic sees the inner shape. Stops at nullable (null IS a value
+// we want to describe), at v3-Effects (inner schema is what we describe),
+// at v4-Pipe (input-side is what we describe).
+function unwrapAllWrappers(schema: AnyZodSchema): AnyZodSchema {
+  let current = schema;
+  for (let i = 0; i < 32; i++) {
+    const kind = kindOf(current);
+    if (!isWrapper(kind)) return current;
+    const next = unwrapOne(current);
+    if (!next) return current;
+    current = next;
   }
-  if (schema instanceof ZodNullable) {
-    return unwrap(schema.unwrap());
-  }
-  if (schema instanceof ZodDefault) {
-    return unwrap(schema._def.innerType);
-  }
-  if (schema instanceof ZodEffects) {
-    return unwrap(schema.innerType());
-  }
-  return schema;
+  return current;
+}
+
+function isWrapper(kind: SchemaKind): boolean {
+  return (
+    kind === "optional" ||
+    kind === "nullable" ||
+    kind === "default" ||
+    kind === "effects" ||
+    kind === "pipe"
+  );
 }

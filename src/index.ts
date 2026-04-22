@@ -23,6 +23,7 @@ export type {
   ContractError,
   ContractOptions,
   ContractResult,
+  ContractSchema,
   DefinedContract,
   FailureCategory,
   InstructionsOptions,

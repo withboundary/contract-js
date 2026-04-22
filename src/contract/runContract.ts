@@ -1,6 +1,6 @@
-import type { ZodType } from "zod";
 import type {
   AttemptDetail,
+  ContractSchema,
   FailureCategory,
   Message,
   ContractResult,
@@ -33,7 +33,7 @@ const emittedDescribe = new WeakSet<DescribeFn>();
 
 export async function runContract<T>(
   contractName: string,
-  schema: ZodType<T>,
+  schema: ContractSchema<T>,
   run: RunFn,
   options: NormalizedContractOptions<T>,
   describe?: DescribeFn,
