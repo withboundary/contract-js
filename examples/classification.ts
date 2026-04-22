@@ -58,12 +58,14 @@ async function main() {
     rules: [
       {
         name: "has_tags",
+        description: "Every ticket must carry at least one routing tag",
         fields: ["tags"],
         check: (ticket: Ticket) =>
           ticket.tags.length > 0 || "must have at least one tag",
       },
       {
         name: "summary_length",
+        description: "Summaries stay under 200 chars for the queue view",
         fields: ["summary"],
         check: (ticket: Ticket) =>
           ticket.summary.length <= 200

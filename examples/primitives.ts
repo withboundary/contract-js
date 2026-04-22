@@ -50,6 +50,7 @@ console.log("Invalid:", invalid.ok);
 const withRules = verify({ name: "Alice", age: 10 }, Schema, [
   {
     name: "age_adult",
+    description: "User must be 18 or older",
     fields: ["age"],
     check: (d) => d.age >= 18 || "must be 18 or older",
   },

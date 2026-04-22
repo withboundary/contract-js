@@ -49,6 +49,7 @@ async function analyzeCheap() {
     rules: [
       {
         name: "non_approve_requires_risks",
+        description: "Non-approve recommendations must cite at least one risk",
         fields: ["risks", "recommendation"],
         check: (analysis: Analysis) =>
           analysis.risks.length > 0 || analysis.recommendation === "approve"
@@ -72,6 +73,7 @@ async function analyzeStrong() {
     rules: [
       {
         name: "non_approve_requires_risks",
+        description: "Non-approve recommendations must cite at least one risk",
         fields: ["risks", "recommendation"],
         check: (analysis: Analysis) =>
           analysis.risks.length > 0 || analysis.recommendation === "approve"

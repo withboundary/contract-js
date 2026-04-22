@@ -14,8 +14,9 @@ describe("contract.describe()", () => {
       rules: [
         {
           name: "score_range",
+          description: "Score must be between 0 and 100",
           fields: ["score"],
-          message: "score must be between 0 and 100",
+          message: "score out of range",
           check: (d) => (d.score >= 0 && d.score <= 100) || "score out of range",
         },
         {
@@ -37,9 +38,41 @@ describe("contract.describe()", () => {
     expect(described.rules).toHaveLength(2);
     expect(described.rules[0]!.name).toBe("score_range");
     expect(described.rules[0]!.fields).toEqual(["score"]);
-    expect(described.rules[0]!.description).toBe("score must be between 0 and 100");
+    expect(described.rules[0]!.description).toBe("Score must be between 0 and 100");
     expect(described.rules[0]!.expression).toContain("score >= 0");
     expect(described.rules[1]!.name).toBe("qualified_requires_tier");
+  });
+
+  it("sources RuleDefinition.description only from rule.description, not from rule.message", () => {
+    const contract = defineContract({
+      name: "x",
+      schema: z.object({ v: z.number() }),
+      rules: [
+        {
+          name: "with_both",
+          description: "v must be positive",
+          message: "v was not positive",
+          check: (d) => d.v > 0,
+        },
+        {
+          name: "with_only_message",
+          message: "v was not below 100",
+          check: (d) => d.v < 100,
+        },
+        {
+          name: "with_only_description",
+          description: "v must be an integer",
+          check: (d) => Number.isInteger(d.v),
+        },
+      ],
+    });
+    const rules = contract.describe().rules;
+    // description wins when both are set
+    expect(rules[0]!.description).toBe("v must be positive");
+    // message alone does NOT populate description (no implicit fallback)
+    expect(rules[1]!.description).toBeUndefined();
+    // description alone lands as expected
+    expect(rules[2]!.description).toBe("v must be an integer");
   });
 
   it("is cached across calls", () => {

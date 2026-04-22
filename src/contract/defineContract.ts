@@ -79,7 +79,12 @@ export function rulesToDefinitions<T>(rules: Rule<T>[] | undefined): RuleDefinit
     const def: RuleDefinition = { name: rule.name };
     const expression = stringifyCheck(rule.check);
     if (expression) def.expression = clamp(expression, MAX_RULE_EXPRESSION);
-    if (rule.message) def.description = clamp(rule.message, MAX_RULE_DESCRIPTION);
+    // Wire description reflects the rule's human-facing label, which is
+    // conceptually distinct from `rule.message` (the static failure text).
+    // No fallback — users who want a UI label set `description` explicitly.
+    if (rule.description) {
+      def.description = clamp(rule.description, MAX_RULE_DESCRIPTION);
+    }
     if (rule.fields && rule.fields.length > 0) {
       def.fields = rule.fields
         .slice(0, MAX_RULE_FIELDS)

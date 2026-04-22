@@ -113,18 +113,30 @@ export interface ContractAttempt {
   previousCategory?: FailureCategory;
 }
 
-// A rule is a named predicate over the contract's output data. The `name`
-// is the stable identifier that joins to backend rule_failure_counts and
-// renders in the dashboard, so it must be unique within a contract.
+// A rule is a named predicate over the contract's output data.
 //
-// `check` can be any predicate shape:
-//   - `true`  → pass
-//   - `false` → fail, use `rule.message` (or "Rule failed" if unset)
-//   - string  → fail, use the returned string (lets rules produce dynamic
-//               per-failure text like `confidence too low: 0.42`;
-//               overrides `rule.message`)
+// - `name`        stable machine key. Unique within a contract. Joins to
+//                 backend rule_failure_counts.rule_key; never display text.
+// - `description` human label for UI, docs, and diffs. This is what the
+//                 dashboard renders and what readable rule diffs compare
+//                 against. Phrased as a positive statement of what the rule
+//                 ensures ("Hot leads must have score > 70"), not as an
+//                 error.
+// - `check`       the predicate. Return shape:
+//                   `true`   → pass
+//                   `false`  → fail, use `rule.message` (or "Rule failed")
+//                   string   → fail, use the returned string — overrides
+//                              `rule.message` for that specific failure so
+//                              rules can produce dynamic per-failure text
+//                              like `confidence too low: 0.42`
+// - `message`     static fallback failure text shown when `check` returns
+//                 false. Separate from `description`: description is what
+//                 the rule *is*, message is what to *say when it fails*.
+// - `fields`      which output fields the rule touches. Powers per-field
+//                 grouping in the dashboard and field-aware repair hints.
 export interface Rule<T> {
   name: string;
+  description?: string;
   check: (data: T) => boolean | string;
   message?: string;
   fields?: string[];

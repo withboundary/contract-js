@@ -60,6 +60,7 @@ async function main() {
     rules: [
       {
         name: "hot_requires_high_score",
+        description: "Hot leads must have a score of at least 70",
         fields: ["tier", "score"],
         check: (lead: Lead) =>
           lead.tier !== "hot" || lead.score >= 70
@@ -67,6 +68,7 @@ async function main() {
       },
       {
         name: "cold_requires_low_score",
+        description: "Cold leads must have a score below 30",
         fields: ["tier", "score"],
         check: (lead: Lead) =>
           lead.tier !== "cold" || lead.score < 30
@@ -74,6 +76,7 @@ async function main() {
       },
       {
         name: "close_requires_qualified",
+        description: "Closing a lead requires it to be qualified",
         fields: ["nextAction", "qualified"],
         check: (lead: Lead) =>
           lead.nextAction !== "close" || lead.qualified
@@ -81,6 +84,7 @@ async function main() {
       },
       {
         name: "signals_not_empty",
+        description: "Every scoring decision must cite at least one signal",
         fields: ["signals"],
         check: (lead: Lead) =>
           lead.signals.length > 0 || "must cite at least one signal",
