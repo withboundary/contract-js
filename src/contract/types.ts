@@ -140,6 +140,11 @@ export interface ContractAttempt {
 //                 the rule *is*, message is what to *say when it fails*.
 // - `fields`      which output fields the rule touches. Powers per-field
 //                 grouping in the dashboard and field-aware repair hints.
+//                 OPTIONAL — omit for simple rules and contract-js will infer
+//                 the accessed fields from the `check` function source
+//                 (e.g. `(d) => d.score > 0` ⇒ `["score"]`). Specify explicitly
+//                 for rules the parser can't read (helpers, aliasing, minified
+//                 code). See `inferRuleFields` for exact inference semantics.
 export interface Rule<T> {
   name: string;
   description?: string;
