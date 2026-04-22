@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel older runs on the same ref when a new commit lands — no point
+# finishing an obsolete build.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version: [18, 20, 22]
     steps:
@@ -18,9 +26,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
 
       - run: npm ci
 
       - run: npm run lint
 
       - run: npm test
+
+      - run: npm run build
+
+      - name: Verify build output
+        run: |
+          test -f dist/index.js || (echo "dist/index.js missing" && exit 1)
+          test -f dist/index.d.ts || (echo "dist/index.d.ts missing" && exit 1)
+
+  # Single aggregate check for branch protection. Point the required status
+  # check at `ci-ok` and the matrix can evolve without touching settings.
+  ci-ok:
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs passed
+        if: needs.test.result != 'success'
+        run: exit 1

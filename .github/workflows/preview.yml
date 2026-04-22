@@ -1,0 +1,36 @@
+name: Preview release
+
+# Publishes every PR to pkg.pr.new so reviewers (and downstream packages like
+# @withboundary/sdk) can `npm i https://pkg.pr.new/withboundary/contract-js@<pr>`
+# without waiting for a changeset + release. Also runs on main pushes so the
+# latest built artifact is always installable from a commit SHA.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # pkg.pr.new posts the install URL as a PR comment.
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npx -y pkg-pr-new publish
