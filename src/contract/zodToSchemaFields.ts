@@ -1,5 +1,19 @@
-import { ZodObject, type ZodType } from "zod";
 import type { SchemaField } from "./types.js";
+import {
+  kindOf,
+  getObjectShape,
+  listStringChecks,
+  listNumberChecks,
+  getArrayInfo,
+  getDefaultValue,
+  getEnumOptions,
+  getNativeEnumValues,
+  getLiteralValue,
+  getUnionOptions,
+  getTypeTag,
+  unwrapOne,
+  type AnyZodSchema,
+} from "../utils/zodCompat.js";
 
 // Backend ingest caps (keep in sync with apps/api/src/routes/ingest.ts):
 //   SchemaField.name       <= 128 chars
@@ -18,9 +32,9 @@ const MAX_FIELDS = 256;
 // The goal is human-readable metadata for the dashboard — not round-trippable
 // JSON Schema. `type` is a short label ("string", "enum", "array<number>")
 // and `constraints` packs the remaining info into a compact string.
-export function zodToSchemaFields(schema: ZodType): SchemaField[] {
-  if (schema instanceof ZodObject) {
-    const shape = schema.shape as Record<string, ZodType>;
+export function zodToSchemaFields(schema: AnyZodSchema): SchemaField[] {
+  if (kindOf(schema) === "object") {
+    const shape = getObjectShape(schema) ?? {};
     const fields: SchemaField[] = [];
     for (const [name, child] of Object.entries(shape)) {
       if (fields.length >= MAX_FIELDS) break;
@@ -31,7 +45,7 @@ export function zodToSchemaFields(schema: ZodType): SchemaField[] {
   return [fieldFor("value", schema)];
 }
 
-function fieldFor(name: string, schema: ZodType): SchemaField {
+function fieldFor(name: string, schema: AnyZodSchema): SchemaField {
   const { type, constraints } = describeZod(schema);
   return {
     name: clamp(name, MAX_NAME),
@@ -40,178 +54,176 @@ function fieldFor(name: string, schema: ZodType): SchemaField {
   };
 }
 
-// Peels wrappers (Optional, Nullable, Default) and returns a { type, constraints }
-// pair. Constraints from wrappers (e.g. "optional") are merged with inner ones.
-function describeZod(schema: ZodType): { type: string; constraints?: string } {
-  const def = (schema as unknown as { _def: { typeName: string } })._def;
-  const typeName = def.typeName;
+// Peels wrappers (Optional, Nullable, Default, v3-Effects, v4-Pipe) and
+// returns a { type, constraints } pair. Constraints from wrappers (e.g.
+// "optional") are merged with inner ones.
+function describeZod(schema: AnyZodSchema): {
+  type: string;
+  constraints?: string;
+} {
+  const kind = kindOf(schema);
 
-  switch (typeName) {
-    case "ZodOptional": {
-      const inner = describeZod((schema as unknown as { _def: { innerType: ZodType } })._def.innerType);
-      return { type: inner.type, constraints: mergeConstraints(inner.constraints, "optional") };
+  switch (kind) {
+    case "optional": {
+      const inner = unwrapOne(schema);
+      if (!inner) return { type: "unknown", constraints: "optional" };
+      const innerDesc = describeZod(inner);
+      return {
+        type: innerDesc.type,
+        constraints: mergeConstraints(innerDesc.constraints, "optional"),
+      };
     }
-    case "ZodNullable": {
-      const inner = describeZod((schema as unknown as { _def: { innerType: ZodType } })._def.innerType);
-      return { type: inner.type, constraints: mergeConstraints(inner.constraints, "nullable") };
+    case "nullable": {
+      const inner = unwrapOne(schema);
+      if (!inner) return { type: "unknown", constraints: "nullable" };
+      const innerDesc = describeZod(inner);
+      return {
+        type: innerDesc.type,
+        constraints: mergeConstraints(innerDesc.constraints, "nullable"),
+      };
     }
-    case "ZodDefault": {
-      const innerSchema = (schema as unknown as { _def: { innerType: ZodType; defaultValue: () => unknown } })._def;
-      const inner = describeZod(innerSchema.innerType);
+    case "default": {
+      const inner = unwrapOne(schema);
+      const innerDesc = inner ? describeZod(inner) : { type: "unknown" };
       let defaultLabel: string;
       try {
-        defaultLabel = `default:${JSON.stringify(innerSchema.defaultValue())}`;
+        defaultLabel = `default:${JSON.stringify(getDefaultValue(schema))}`;
       } catch {
         defaultLabel = "default";
       }
-      return { type: inner.type, constraints: mergeConstraints(inner.constraints, defaultLabel) };
+      return {
+        type: innerDesc.type,
+        constraints: mergeConstraints(innerDesc.constraints, defaultLabel),
+      };
     }
-    case "ZodString":
+    case "effects": {
+      // v3: .refine() / .transform() wrap the schema. Describe the inner,
+      // tag with "refined".
+      const inner = unwrapOne(schema);
+      if (!inner) return { type: "unknown", constraints: "refined" };
+      const innerDesc = describeZod(inner);
+      return {
+        type: innerDesc.type,
+        constraints: mergeConstraints(innerDesc.constraints, "refined"),
+      };
+    }
+    case "pipe": {
+      // v4: .transform() produces a ZodPipe. Describe the input side, tag
+      // with "transformed" to hint at the post-parse shift.
+      const inner = unwrapOne(schema);
+      if (!inner) return { type: "unknown", constraints: "transformed" };
+      const innerDesc = describeZod(inner);
+      return {
+        type: innerDesc.type,
+        constraints: mergeConstraints(innerDesc.constraints, "transformed"),
+      };
+    }
+    case "string":
       return { type: "string", constraints: stringConstraints(schema) };
-    case "ZodNumber":
+    case "number":
       return { type: "number", constraints: numberConstraints(schema) };
-    case "ZodBigInt":
-      return { type: "bigint" };
-    case "ZodBoolean":
+    case "boolean":
       return { type: "boolean" };
-    case "ZodDate":
-      return { type: "date" };
-    case "ZodLiteral": {
-      const value = (schema as unknown as { _def: { value: unknown } })._def.value;
+    case "literal": {
+      const value = getLiteralValue(schema);
       return { type: "literal", constraints: `=${JSON.stringify(value)}` };
     }
-    case "ZodEnum": {
-      const values = (schema as unknown as { _def: { values: readonly string[] } })._def.values;
+    case "enum": {
+      const values = getEnumOptions(schema) ?? [];
       return { type: "enum", constraints: values.join("|") };
     }
-    case "ZodNativeEnum": {
-      const enumObj = (schema as unknown as { _def: { values: Record<string, string | number> } })._def.values;
-      const values = Object.values(enumObj).filter((v) => typeof v !== "number" || !Object.prototype.hasOwnProperty.call(enumObj, v));
-      return { type: "enum", constraints: values.map(String).join("|") };
+    case "nativeEnum": {
+      const values = getNativeEnumValues(schema) ?? [];
+      return { type: "enum", constraints: values.join("|") };
     }
-    case "ZodArray": {
-      const inner = describeZod((schema as unknown as { _def: { type: ZodType } })._def.type);
-      const constraints = arrayConstraints(schema);
-      return { type: `array<${inner.type}>`, constraints: mergeConstraints(inner.constraints, constraints) };
+    case "array": {
+      const info = getArrayInfo(schema);
+      const inner = info.element
+        ? describeZod(info.element)
+        : { type: "unknown", constraints: undefined };
+      return {
+        type: `array<${inner.type}>`,
+        constraints: mergeConstraints(inner.constraints, arrayConstraintsString(info)),
+      };
     }
-    case "ZodObject":
+    case "object":
       return { type: "object" };
-    case "ZodRecord":
-      return { type: "record" };
-    case "ZodMap":
-      return { type: "map" };
-    case "ZodSet":
-      return { type: "set" };
-    case "ZodTuple":
-      return { type: "tuple" };
-    case "ZodUnion":
-    case "ZodDiscriminatedUnion": {
-      const options = (schema as unknown as { _def: { options: ZodType[] } })._def.options;
+    case "union": {
+      const options = getUnionOptions(schema) ?? [];
       const parts = options.map((opt) => describeZod(opt).type);
       return { type: parts.join("|") };
     }
-    case "ZodIntersection":
-      return { type: "intersection" };
-    case "ZodLazy":
-      return { type: "lazy" };
-    case "ZodEffects": {
-      const inner = describeZod((schema as unknown as { _def: { schema: ZodType } })._def.schema);
-      return { type: inner.type, constraints: mergeConstraints(inner.constraints, "refined") };
+    default: {
+      // Fall through to the raw type tag for less-common zod schemas
+      // (bigint, date, record, map, set, tuple, intersection, lazy, null,
+      // undefined, void, never, any, unknown, …).
+      return { type: getTypeTag(schema) };
     }
-    case "ZodAny":
-    case "ZodUnknown":
-      return { type: "any" };
-    case "ZodNull":
-      return { type: "null" };
-    case "ZodUndefined":
-      return { type: "undefined" };
-    case "ZodVoid":
-      return { type: "void" };
-    case "ZodNever":
-      return { type: "never" };
-    default:
-      return { type: typeName.replace(/^Zod/, "").toLowerCase() };
   }
 }
 
-function stringConstraints(schema: ZodType): string | undefined {
-  const def = (schema as unknown as { _def: { checks?: Array<{ kind: string; value?: number; regex?: RegExp }> } })._def;
-  const checks = def.checks ?? [];
-  const parts: string[] = [];
-  for (const check of checks) {
-    switch (check.kind) {
+function stringConstraints(schema: AnyZodSchema): string | undefined {
+  const parts = listStringChecks(schema).map((c) => {
+    switch (c.kind) {
       case "min":
-        parts.push(`min:${check.value}`);
-        break;
+        return `min:${c.value}`;
       case "max":
-        parts.push(`max:${check.value}`);
-        break;
+        return `max:${c.value}`;
       case "length":
-        parts.push(`length:${check.value}`);
-        break;
+        return `length:${c.value}`;
       case "email":
-        parts.push("email");
-        break;
       case "url":
-        parts.push("url");
-        break;
       case "uuid":
-        parts.push("uuid");
-        break;
       case "cuid":
-        parts.push("cuid");
-        break;
       case "regex":
-        parts.push("regex");
-        break;
+        return c.kind;
       case "startsWith":
-        parts.push("startsWith");
-        break;
+        return "startsWith";
       case "endsWith":
-        parts.push("endsWith");
-        break;
+        return "endsWith";
     }
-  }
+  });
   return parts.length > 0 ? parts.join(",") : undefined;
 }
 
-function numberConstraints(schema: ZodType): string | undefined {
-  const def = (schema as unknown as { _def: { checks?: Array<{ kind: string; value?: number }> } })._def;
-  const checks = def.checks ?? [];
-  const parts: string[] = [];
-  for (const check of checks) {
-    switch (check.kind) {
+function numberConstraints(schema: AnyZodSchema): string | undefined {
+  const parts = listNumberChecks(schema).map((c) => {
+    switch (c.kind) {
       case "min":
-        parts.push(`min:${check.value}`);
-        break;
+        return `min:${c.value}`;
       case "max":
-        parts.push(`max:${check.value}`);
-        break;
+        return `max:${c.value}`;
       case "int":
-        parts.push("int");
-        break;
+        return "int";
       case "multipleOf":
-        parts.push(`multipleOf:${check.value}`);
-        break;
+        return `multipleOf:${c.value}`;
       case "finite":
-        parts.push("finite");
-        break;
+        return "finite";
     }
+  });
+  return parts.length > 0 ? parts.join(",") : undefined;
+}
+
+function arrayConstraintsString(info: {
+  minLength?: number;
+  maxLength?: number;
+  exactLength?: number;
+}): string | undefined {
+  const parts: string[] = [];
+  if (typeof info.minLength === "number") parts.push(`min:${info.minLength}`);
+  if (typeof info.maxLength === "number") parts.push(`max:${info.maxLength}`);
+  if (typeof info.exactLength === "number") {
+    parts.push(`length:${info.exactLength}`);
   }
   return parts.length > 0 ? parts.join(",") : undefined;
 }
 
-function arrayConstraints(schema: ZodType): string | undefined {
-  const def = (schema as unknown as { _def: { minLength?: { value: number }; maxLength?: { value: number }; exactLength?: { value: number } } })._def;
-  const parts: string[] = [];
-  if (def.minLength) parts.push(`min:${def.minLength.value}`);
-  if (def.maxLength) parts.push(`max:${def.maxLength.value}`);
-  if (def.exactLength) parts.push(`length:${def.exactLength.value}`);
-  return parts.length > 0 ? parts.join(",") : undefined;
-}
-
-function mergeConstraints(...parts: Array<string | undefined>): string | undefined {
-  const filtered = parts.filter((p): p is string => typeof p === "string" && p.length > 0);
+function mergeConstraints(
+  ...parts: Array<string | undefined>
+): string | undefined {
+  const filtered = parts.filter(
+    (p): p is string => typeof p === "string" && p.length > 0,
+  );
   return filtered.length > 0 ? filtered.join(",") : undefined;
 }
 

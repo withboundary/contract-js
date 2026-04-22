@@ -1,17 +1,22 @@
-import type { ZodError, ZodType } from "zod";
-import type { Rule, ContractResult, RuleIssue } from "../contract/types.js";
+import type {
+  ContractResult,
+  ContractSchema,
+  Rule,
+  RuleIssue,
+} from "../contract/types.js";
+import { safeParse } from "../utils/zodCompat.js";
 import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
 import { success } from "../result/success.js";
 
 export function verify<T>(
   data: unknown,
-  schema: ZodType<T>,
+  schema: ContractSchema<T>,
   rules?: Rule<T>[],
 ): ContractResult<T> {
-  const parseResult = schema.safeParse(data);
+  const parseResult = safeParse<T>(schema, data);
 
   if (!parseResult.success) {
-    const issues = formatZodError(parseResult.error);
+    const issues = formatIssues(parseResult.issues ?? []);
     const detail = createAttemptDetail(
       typeof data === "string" ? data : JSON.stringify(data),
       data,
@@ -21,7 +26,7 @@ export function verify<T>(
     return failure(createContractError([detail]));
   }
 
-  const typed = parseResult.data;
+  const typed = parseResult.data as T;
 
   if (rules && rules.length > 0) {
     const ruleIssues: RuleIssue[] = [];
@@ -59,8 +64,13 @@ export function verify<T>(
   );
 }
 
-export function formatZodError(error: ZodError): string[] {
-  return error.issues.map((issue) => {
+// Flatten normalized zod issues (from zodCompat.safeParse) into the dotted-path
+// strings that `AttemptDetail.issues` expects. Works for both zod v3 and v4
+// because the adapter produces the same shape for each.
+export function formatIssues(
+  issues: Array<{ path: Array<string | number>; message: string }>,
+): string[] {
+  return issues.map((issue) => {
     const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
     return `${path}${issue.message}`;
   });

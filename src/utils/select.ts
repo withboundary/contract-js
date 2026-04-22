@@ -1,8 +1,13 @@
-import { type ZodType, ZodObject } from "zod";
+import {
+  kindOf,
+  unwrapOne,
+  getObjectShape,
+  type AnyZodSchema,
+} from "./zodCompat.js";
 
-export function select<T>(
+export function select(
   state: Record<string, unknown>,
-  schema: ZodType<T>,
+  schema: AnyZodSchema,
 ): Record<string, unknown> {
   const inner = unwrapToObject(schema);
   if (!inner) {
@@ -14,9 +19,11 @@ export function select<T>(
 
 function projectObject(
   source: Record<string, unknown>,
-  schema: ZodObject<any>,
+  schema: AnyZodSchema,
 ): Record<string, unknown> {
-  const shape = schema.shape;
+  const shape = getObjectShape(schema);
+  if (!shape) return {};
+
   const result: Record<string, unknown> = {};
 
   for (const key of Object.keys(shape)) {
@@ -25,7 +32,7 @@ function projectObject(
     }
 
     const value = source[key];
-    const fieldSchema = unwrapToObject(shape[key] as ZodType);
+    const fieldSchema = unwrapToObject(shape[key]);
 
     if (
       fieldSchema &&
@@ -43,18 +50,9 @@ function projectObject(
   return result;
 }
 
-function unwrapToObject(schema: ZodType): ZodObject<any> | null {
-  if (schema instanceof ZodObject) {
-    return schema;
-  }
-
-  const def = (schema as any)._def;
-  if (def?.innerType) {
-    return unwrapToObject(def.innerType);
-  }
-  if (def?.schema) {
-    return unwrapToObject(def.schema);
-  }
-
-  return null;
+function unwrapToObject(schema: AnyZodSchema): AnyZodSchema | null {
+  if (kindOf(schema) === "object") return schema;
+  const inner = unwrapOne(schema);
+  if (!inner) return null;
+  return unwrapToObject(inner);
 }
