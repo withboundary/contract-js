@@ -33,7 +33,7 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@changesets/cli": "^2.29.8",
-    "@types/node": "^22.19.17",
+    "@types/node": "^25.6.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5",
