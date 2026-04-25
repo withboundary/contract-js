@@ -12,3 +12,6 @@ coverage/
 examples/live-*.ts
 internal-docs/
 .astro/
+
+# Local-only Claude Code instructions (not committed to public repo)
+CLAUDE.md

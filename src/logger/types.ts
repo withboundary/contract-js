@@ -12,12 +12,20 @@ export interface ConsoleLoggerOptions {
   maxStringLength?: number;
 }
 
-// Every hook ctx includes `contractName` — the `name` set on defineContract —
-// so loggers can attribute events to the right contract without holding a
-// separate reference.
+// Every hook ctx carries two identifiers:
+//   - `contractName`: the name passed to defineContract — stable across
+//     every call, suitable for attribution to a specific contract.
+//   - `runHandle`: a per-call unique id minted by the engine on every
+//     accept() invocation. Lets loggers key their per-run scratch state
+//     by-call instead of by-name, so concurrent accept() calls on the
+//     same contract don't collide in shared maps.
+export interface RunHookContextBase {
+  contractName: string;
+  runHandle: string;
+}
+
 export type ContractLogger<T = unknown> = {
-  onRunStart?: (ctx: {
-    contractName: string;
+  onRunStart?: (ctx: RunHookContextBase & {
     maxAttempts: number;
     rulesCount: number;
     // Per-call model override (from `accept(run, { model })`). When absent,
@@ -34,31 +42,26 @@ export type ContractLogger<T = unknown> = {
     schema?: SchemaField[];
     rules?: RuleDefinition[];
   }) => void;
-  onAttemptStart?: (ctx: {
-    contractName: string;
+  onAttemptStart?: (ctx: RunHookContextBase & {
     attempt: number;
     maxAttempts: number;
     instructions: string;
     repairs: Array<unknown>;
   }) => void;
-  onRawOutput?: (ctx: {
-    contractName: string;
+  onRawOutput?: (ctx: RunHookContextBase & {
     attempt: number;
     raw: string;
   }) => void;
-  onCleanedOutput?: (ctx: {
-    contractName: string;
+  onCleanedOutput?: (ctx: RunHookContextBase & {
     attempt: number;
     cleaned: unknown;
   }) => void;
-  onVerifySuccess?: (ctx: {
-    contractName: string;
+  onVerifySuccess?: (ctx: RunHookContextBase & {
     attempt: number;
     data: T;
     durationMs: number;
   }) => void;
-  onVerifyFailure?: (ctx: {
-    contractName: string;
+  onVerifyFailure?: (ctx: RunHookContextBase & {
     attempt: number;
     category: string;
     issues: string[];
@@ -68,27 +71,23 @@ export type ContractLogger<T = unknown> = {
     ruleIssues?: RuleIssue[];
     durationMs: number;
   }) => void;
-  onRepairGenerated?: (ctx: {
-    contractName: string;
+  onRepairGenerated?: (ctx: RunHookContextBase & {
     attempt: number;
     category: string;
     repairMessage: string;
   }) => void;
-  onRetryScheduled?: (ctx: {
-    contractName: string;
+  onRetryScheduled?: (ctx: RunHookContextBase & {
     attempt: number;
     nextAttempt: number;
     category: string;
     delayMs: number;
   }) => void;
-  onRunSuccess?: (ctx: {
-    contractName: string;
+  onRunSuccess?: (ctx: RunHookContextBase & {
     attempts: number;
     data: T;
     totalDurationMs: number;
   }) => void;
-  onRunFailure?: (ctx: {
-    contractName: string;
+  onRunFailure?: (ctx: RunHookContextBase & {
     attempts: number;
     category?: string;
     message: string;
