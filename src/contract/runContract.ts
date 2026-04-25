@@ -31,6 +31,15 @@ type DescribeFn = () => { schema: SchemaField[]; rules: RuleDefinition[] };
 // is wasteful). Keyed by contract identity (the `describe` closure).
 const emittedDescribe = new WeakSet<DescribeFn>();
 
+// Per-call unique handle. Loggers key their per-run scratch by this so
+// concurrent accept() calls on the same contract don't collide. Plain
+// counter + random suffix is enough — handles never leave the process.
+let handleCounter = 0;
+function createRunHandle(): string {
+  handleCounter = (handleCounter + 1) | 0;
+  return `rh_${Date.now().toString(36)}_${handleCounter.toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export async function runContract<T>(
   contractName: string,
   schema: ContractSchema<T>,
@@ -39,6 +48,7 @@ export async function runContract<T>(
   describe?: DescribeFn,
 ): Promise<ContractResult<T>> {
   const logger = options.logger;
+  const runHandle = createRunHandle();
   let schemaInstructions = buildInstructions(schema);
   if (options.instructions.suffix) {
     schemaInstructions = `${schemaInstructions}\n\n${options.instructions.suffix}`;
@@ -56,6 +66,7 @@ export async function runContract<T>(
 
   emitLogger(logger, "onRunStart", {
     contractName,
+    runHandle,
     maxAttempts: options.retry.maxAttempts,
     rulesCount: options.rules?.length ?? 0,
     model: options.model,
@@ -77,6 +88,7 @@ export async function runContract<T>(
     };
     emitLogger(logger, "onAttemptStart", {
       contractName,
+      runHandle,
       attempt: attemptNum,
       maxAttempts: options.retry.maxAttempts,
       instructions: schemaInstructions,
@@ -92,7 +104,7 @@ export async function runContract<T>(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       raw = "";
-      emitLogger(logger, "onRawOutput", { contractName, attempt: attemptNum, raw });
+      emitLogger(logger, "onRawOutput", { contractName, runHandle, attempt: attemptNum, raw });
       const detail = createAttemptDetail(
         raw,
         null,
@@ -101,6 +113,7 @@ export async function runContract<T>(
       );
       const handled = handleFailure(
         contractName,
+        runHandle,
         detail,
         attemptDetails,
         attemptNum,
@@ -113,6 +126,7 @@ export async function runContract<T>(
         const contractError = createContractError(attemptDetails);
         emitLogger(logger, "onRunFailure", {
           contractName,
+          runHandle,
           attempts: attemptDetails.length,
           category: detail.category,
           message: contractError.message,
@@ -123,13 +137,13 @@ export async function runContract<T>(
       currentRepairs = handled.repairs;
       previousError = createContractError(attemptDetails);
       previousCategory = detail.category;
-      emitRetry(logger, contractName, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+      emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
       continue;
     }
 
-    emitLogger(logger, "onRawOutput", { contractName, attempt: attemptNum, raw });
+    emitLogger(logger, "onRawOutput", { contractName, runHandle, attempt: attemptNum, raw });
     const cleaned = clean(raw);
-    emitLogger(logger, "onCleanedOutput", { contractName, attempt: attemptNum, cleaned });
+    emitLogger(logger, "onCleanedOutput", { contractName, runHandle, attempt: attemptNum, cleaned });
     if (cleaned === null || cleaned === undefined) {
       const category = classify(raw, cleaned);
       const detail = createAttemptDetail(
@@ -140,6 +154,7 @@ export async function runContract<T>(
       );
       const handled = handleFailure(
         contractName,
+        runHandle,
         detail,
         attemptDetails,
         attemptNum,
@@ -152,6 +167,7 @@ export async function runContract<T>(
         const contractError = createContractError(attemptDetails);
         emitLogger(logger, "onRunFailure", {
           contractName,
+          runHandle,
           attempts: attemptDetails.length,
           category: detail.category,
           message: contractError.message,
@@ -162,7 +178,7 @@ export async function runContract<T>(
       currentRepairs = handled.repairs;
       previousError = createContractError(attemptDetails);
       previousCategory = detail.category;
-      emitRetry(logger, contractName, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+      emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
       continue;
     }
 
@@ -172,12 +188,14 @@ export async function runContract<T>(
       emitAttempt(options, attemptNum, true, raw, [], durationMs);
       emitLogger(logger, "onVerifySuccess", {
         contractName,
+        runHandle,
         attempt: attemptNum,
         data: verifyResult.data,
         durationMs,
       });
       emitLogger(logger, "onRunSuccess", {
         contractName,
+        runHandle,
         attempts: attemptNum,
         data: verifyResult.data,
         totalDurationMs: Date.now() - totalStart,
@@ -200,6 +218,7 @@ export async function runContract<T>(
     );
     emitLogger(logger, "onVerifyFailure", {
       contractName,
+      runHandle,
       attempt: attemptNum,
       category: detail.category,
       issues: detail.issues,
@@ -208,6 +227,7 @@ export async function runContract<T>(
     });
     const handled = handleFailure(
       contractName,
+      runHandle,
       detail,
       attemptDetails,
       attemptNum,
@@ -230,13 +250,14 @@ export async function runContract<T>(
     currentRepairs = handled.repairs;
     previousError = createContractError(attemptDetails);
     previousCategory = detail.category;
-    emitRetry(logger, contractName, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+    emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
   }
 
   const contractError = createContractError(attemptDetails);
   const lastCategory = attemptDetails[attemptDetails.length - 1]?.category;
   emitLogger(logger, "onRunFailure", {
     contractName,
+    runHandle,
     attempts: attemptDetails.length,
     category: lastCategory,
     message: contractError.message,
@@ -253,6 +274,7 @@ function isFailureResult<T>(
 
 function handleFailure<T>(
   contractName: string,
+  runHandle: string,
   detail: AttemptDetail,
   attemptDetails: AttemptDetail[],
   attemptNum: number,
@@ -276,6 +298,7 @@ function handleFailure<T>(
   if (repairResult === false) {
     emitLogger(logger, "onRepairGenerated", {
       contractName,
+      runHandle,
       attempt: attemptNum,
       category: detail.category,
       repairMessage: "(disabled by repair override)",
@@ -284,6 +307,7 @@ function handleFailure<T>(
   }
   emitLogger(logger, "onRepairGenerated", {
     contractName,
+    runHandle,
     attempt: attemptNum,
     category: detail.category,
     repairMessage: repairResult.map((message) => message.content).join("\n"),
@@ -325,6 +349,7 @@ function describeFailure(category: FailureCategory, raw: string): string {
 function emitRetry<T>(
   logger: ContractLogger<T> | undefined,
   contractName: string,
+  runHandle: string,
   attemptNum: number,
   category: FailureCategory,
   maxAttempts: number,
@@ -336,6 +361,7 @@ function emitRetry<T>(
 
   emitLogger(logger, "onRetryScheduled", {
     contractName,
+    runHandle,
     attempt: attemptNum,
     nextAttempt: attemptNum + 1,
     category,
