@@ -2,9 +2,13 @@
   "name": "@withboundary/contract",
   "version": "1.5.0",
   "description": "Make LLM outputs correct, not just valid. Schema + rules + auto-repair.",
+  "homepage": "https://withboundary.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/withboundary/contract-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/withboundary/contract-js/issues"
   },
   "type": "module",
   "main": "./dist/index.js",
