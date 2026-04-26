@@ -53,9 +53,15 @@ const schema = z.object({
 });
 
 const result = await enforce(schema, runLLM, {
+  name: "lead-scoring",
   rules: [
-    (d) => d.tier !== "hot" || d.score > 70
-      || `hot leads require score > 70, got ${d.score}`,
+    {
+      name: "hot_requires_high_score",
+      description: "Hot leads must have a score of at least 70",
+      check: (lead) =>
+        lead.tier !== "hot" || lead.score >= 70
+          || `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
+    },
   ],
 });
 
@@ -83,25 +89,33 @@ async function runLLM(attempt) {
 
 ## Correctness is just a function
 
-Schemas validate structure. Rules define what _correct_ means for your domain.
+Schemas validate structure. Rules define what _correct_ means for your domain. Each rule is a named, deterministic check — `name` joins to per-rule failure attribution, `description` is the positive statement of the invariant, `check` returns `true` to pass or a string to fail.
 
 ```ts
 rules: [
-  // Cross-field correctness
-  (d) => Math.abs(d.subtotal + d.tax - d.total) < 0.01
-    || `subtotal + tax != total`,
-
-  // Business logic
-  (d) => d.tier !== "hot" || d.score > 70
-    || `hot leads require score > 70`,
-
-  // State constraints
-  (d) => d.endDate > d.startDate
-    || "end date must be after start date",
+  {
+    name: "invoice_math_consistent",
+    description: "Subtotal plus tax must equal total within a cent",
+    check: (invoice) =>
+      Math.abs(invoice.subtotal + invoice.tax - invoice.total) < 0.01
+        || `subtotal + tax != total`,
+  },
+  {
+    name: "hot_requires_high_score",
+    description: "Hot leads must have a score of at least 70",
+    check: (lead) =>
+      lead.tier !== "hot" || lead.score >= 70
+        || `hot leads require score > 70`,
+  },
+  {
+    name: "end_after_start",
+    description: "End date is strictly after start date",
+    check: (range) => range.endDate > range.startDate || "end date must be after start date",
+  },
 ]
 ```
 
-A rule returns `true` if it passes, or a string describing what's wrong. The string becomes part of the repair prompt — the model sees exactly what to fix.
+The string a failed `check` returns becomes part of the repair prompt — the model sees exactly what to fix. `fields` is auto-inferred from the check function source; supply it explicitly only if you minify or your check delegates to a helper.
 
 ## What it does
 
@@ -149,10 +163,16 @@ Define once, reuse everywhere:
 import { defineContract } from "@withboundary/contract";
 
 const leadContract = defineContract({
+  name: "lead-scoring",
   schema,
   rules: [
-    (d) => d.tier !== "hot" || d.score > 70
-      || `hot leads require score > 70`,
+    {
+      name: "hot_requires_high_score",
+      description: "Hot leads must have a score of at least 70",
+      check: (lead) =>
+        lead.tier !== "hot" || lead.score >= 70
+          || `hot leads require score > 70`,
+    },
   ],
   retry: { maxAttempts: 4 },
 });
@@ -188,6 +208,19 @@ const result = await enforce(schema, runLLM, {
 });
 ```
 
+For production observability — acceptance rate, top failing rules, repair patterns, latency across every contract run — pair with [`@withboundary/sdk`](https://github.com/withboundary/sdk-js):
+
+```ts
+import { createBoundaryLogger } from "@withboundary/sdk";
+
+defineContract({
+  // ...
+  logger: createBoundaryLogger({ apiKey: process.env.BOUNDARY_API_KEY }),
+});
+```
+
+It's optional. The contract engine is fully usable without it.
+
 ## Use cheaper models safely
 
 Correctness is enforced by the contract — not the model.
@@ -217,6 +250,10 @@ This works best when "correct" can be defined.
 
 Model-agnostic. Works with any provider that returns text — OpenAI, Anthropic, Google, Mistral, local models.
 
+## Versioning
+
+Follows [semver](https://semver.org). Breaking API changes ship in major releases; new options and types ship in minor releases; bug fixes ship in patches. The optional companion package `@withboundary/sdk` declares this package as a peer dependency in the `^1.4.0` range — bump the engine and the SDK together at the major boundary.
+
 ## License
 
 MIT
@@ -225,6 +262,7 @@ MIT
 
 - [Documentation](https://docs.withboundary.com)
 - [Examples](./examples)
+- [Issues](https://github.com/withboundary/contract-js/issues)
 
 ---
 
