@@ -1,6 +1,6 @@
 {
   "name": "@withboundary/contract",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Make LLM outputs correct, not just valid. Schema + rules + auto-repair.",
   "keywords": [
     "anthropic",
@@ -17,6 +17,10 @@
     "validation",
     "zod"
   ],
+  "homepage": "https://withboundary.com",
+  "bugs": {
+    "url": "https://github.com/withboundary/contract-js/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -54,7 +58,7 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@changesets/cli": "^2.29.8",
-    "@types/node": "^22.19.17",
+    "@types/node": "^25.6.0",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
     "tsup": "^8.5.1",

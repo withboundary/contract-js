@@ -246,6 +246,7 @@ export async function runContract<T>(
       const contractError = createContractError(attemptDetails);
       emitLogger(logger, "onRunFailure", {
         contractName,
+        runHandle,
         attempts: attemptDetails.length,
         category: detail.category,
         message: contractError.message,

@@ -234,6 +234,13 @@ Anthropic, Gemini, Mistral, local models, or any function that returns text.
   `ContractResult`.
 - Optional observability lives in a separate package, `@withboundary/sdk`.
 
+## Versioning
+
+Follows [semver](https://semver.org). Breaking API changes ship in major
+releases; new options and types ship in minor releases; non-breaking
+enhancements ship in patches. The optional companion package
+`@withboundary/sdk` declares this package as a peer dependency.
+
 ## Links
 
 - [Documentation](https://docs.withboundary.com)

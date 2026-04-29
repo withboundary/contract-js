@@ -226,6 +226,32 @@ describe("logger", () => {
     expect(handles[0]).toMatch(/^rh_/);
   });
 
+  it("includes the runHandle on terminal failure hooks", async () => {
+    const handles: string[] = [];
+    const logger: ContractLogger = {
+      onRunStart(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onVerifyFailure(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onRunFailure(ctx) {
+        handles.push(ctx.runHandle);
+      },
+    };
+
+    const result = await enforce(Schema, async () => '{"sentiment":"positive","confidence":2}', {
+      name: NAME,
+      retry: { maxAttempts: 1 },
+      logger,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(handles).toHaveLength(3);
+    expect(new Set(handles).size).toBe(1);
+    expect(handles[0]).toMatch(/^rh_/);
+  });
+
   it("creates distinct runHandles for concurrent accepts of the same contract", async () => {
     const starts: string[] = [];
     const logger: ContractLogger = {
