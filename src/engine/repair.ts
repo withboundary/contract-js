@@ -1,9 +1,4 @@
-import type {
-  AttemptDetail,
-  FailureCategory,
-  Message,
-  RepairFn,
-} from "../contract/types.js";
+import type { AttemptDetail, FailureCategory, Message, RepairFn } from "../contract/types.js";
 
 export function repair(
   detail: AttemptDetail,

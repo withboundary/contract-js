@@ -40,9 +40,7 @@ describe.each(versions)("zodCompat — %s", (_label, z) => {
       expect(kindOf(z.literal("x") as AnyZodSchema)).toBe("literal");
     });
     it("tags union schemas", () => {
-      expect(
-        kindOf(z.union([z.string(), z.number()]) as AnyZodSchema),
-      ).toBe("union");
+      expect(kindOf(z.union([z.string(), z.number()]) as AnyZodSchema)).toBe("union");
     });
     it("tags string schemas", () => {
       expect(kindOf(z.string() as AnyZodSchema)).toBe("string");
@@ -214,11 +212,7 @@ describe.each(versions)("zodCompat — %s", (_label, z) => {
       const opts = getUnionOptions(s as AnyZodSchema);
       expect(opts).not.toBeNull();
       expect(opts!).toHaveLength(3);
-      expect(opts!.map((o) => kindOf(o)).sort()).toEqual([
-        "boolean",
-        "number",
-        "string",
-      ]);
+      expect(opts!.map((o) => kindOf(o)).sort()).toEqual(["boolean", "number", "string"]);
     });
     it("returns null for non-unions", () => {
       expect(getUnionOptions(z.string() as AnyZodSchema)).toBeNull();
@@ -279,9 +273,7 @@ describe("zodCompat — v4-specific", () => {
   });
 
   it("transform produces a pipe; unwrapOne returns the input side", () => {
-    const piped = z4
-      .object({ a: z4.string() })
-      .transform((v) => v.a.toUpperCase());
+    const piped = z4.object({ a: z4.string() }).transform((v) => v.a.toUpperCase());
     expect(kindOf(piped as AnyZodSchema)).toBe("pipe");
     const unwrapped = unwrapOne(piped as AnyZodSchema);
     expect(unwrapped).not.toBeNull();

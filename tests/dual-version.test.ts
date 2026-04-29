@@ -64,9 +64,7 @@ describe.each(versions)("%s end-to-end", (_label, z) => {
         score: number;
       }>,
     });
-    const result = await contract.accept(async () =>
-      JSON.stringify({ tier: "warm", score: 42 }),
-    );
+    const result = await contract.accept(async () => JSON.stringify({ tier: "warm", score: 42 }));
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data).toEqual({ tier: "warm", score: 42 });
@@ -82,9 +80,7 @@ describe.each(versions)("%s end-to-end", (_label, z) => {
       }>,
       retry: { maxAttempts: 1 },
     });
-    const result = await contract.accept(async () =>
-      JSON.stringify({ tier: "nope", score: 999 }),
-    );
+    const result = await contract.accept(async () => JSON.stringify({ tier: "nope", score: 999 }));
     expect(result.ok).toBe(false);
   });
 
@@ -104,16 +100,12 @@ describe.each(versions)("%s end-to-end", (_label, z) => {
         },
       ],
     });
-    const result = await contract.accept(async () =>
-      JSON.stringify({ tier: "cold", score: 10 }),
-    );
+    const result = await contract.accept(async () => JSON.stringify({ tier: "cold", score: 10 }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.attempts[0].category).toBe("RULE_ERROR");
       expect(result.error.attempts[0].issues).toContain("score too low");
-      expect(result.error.attempts[0].ruleIssues?.[0]?.rule.name).toBe(
-        "score_threshold",
-      );
+      expect(result.error.attempts[0].ruleIssues?.[0]?.rule.name).toBe("score_threshold");
     }
   });
 

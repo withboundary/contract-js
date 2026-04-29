@@ -15,7 +15,7 @@ import {
   type AnyZodSchema,
 } from "../utils/zodCompat.js";
 
-// Backend ingest caps (keep in sync with apps/api/src/routes/ingest.ts):
+// Boundary ingest caps:
 //   SchemaField.name       <= 128 chars
 //   SchemaField.type       <= 128 chars
 //   SchemaField.constraints <= 256 chars
@@ -218,12 +218,8 @@ function arrayConstraintsString(info: {
   return parts.length > 0 ? parts.join(",") : undefined;
 }
 
-function mergeConstraints(
-  ...parts: Array<string | undefined>
-): string | undefined {
-  const filtered = parts.filter(
-    (p): p is string => typeof p === "string" && p.length > 0,
-  );
+function mergeConstraints(...parts: Array<string | undefined>): string | undefined {
+  const filtered = parts.filter((p): p is string => typeof p === "string" && p.length > 0);
   return filtered.length > 0 ? filtered.join(",") : undefined;
 }
 

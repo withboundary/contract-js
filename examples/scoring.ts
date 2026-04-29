@@ -63,31 +63,33 @@ async function main() {
         description: "Hot leads must have a score of at least 70",
         fields: ["tier", "score"],
         check: (lead: Lead) =>
-          lead.tier !== "hot" || lead.score >= 70
-            || `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
+          lead.tier !== "hot" ||
+          lead.score >= 70 ||
+          `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
       },
       {
         name: "cold_requires_low_score",
         description: "Cold leads must have a score below 30",
         fields: ["tier", "score"],
         check: (lead: Lead) =>
-          lead.tier !== "cold" || lead.score < 30
-            || `tier is "cold" but score is ${lead.score} (must be under 30 for cold)`,
+          lead.tier !== "cold" ||
+          lead.score < 30 ||
+          `tier is "cold" but score is ${lead.score} (must be under 30 for cold)`,
       },
       {
         name: "close_requires_qualified",
         description: "Closing a lead requires it to be qualified",
         fields: ["nextAction", "qualified"],
         check: (lead: Lead) =>
-          lead.nextAction !== "close" || lead.qualified
-            || 'nextAction is "close" but lead is not qualified',
+          lead.nextAction !== "close" ||
+          lead.qualified ||
+          'nextAction is "close" but lead is not qualified',
       },
       {
         name: "signals_not_empty",
         description: "Every scoring decision must cite at least one signal",
         fields: ["signals"],
-        check: (lead: Lead) =>
-          lead.signals.length > 0 || "must cite at least one signal",
+        check: (lead: Lead) => lead.signals.length > 0 || "must cite at least one signal",
       },
     ],
     onAttempt: (event) => {

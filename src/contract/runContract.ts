@@ -16,11 +16,7 @@ import { instructions as buildInstructions } from "../engine/instructions.js";
 import { repair } from "../engine/repair.js";
 import { computeRetryDelay, sleep } from "../engine/retry.js";
 import { verify } from "../engine/verify.js";
-import {
-  createAttemptDetail,
-  createContractError,
-  failure,
-} from "../result/failure.js";
+import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
 import { success } from "../result/success.js";
 
 type DescribeFn = () => { schema: SchemaField[]; rules: RuleDefinition[] };
@@ -60,8 +56,7 @@ export async function runContract<T>(
   let previousCategory: FailureCategory | undefined;
 
   const totalStart = Date.now();
-  const description =
-    describe && !emittedDescribe.has(describe) ? describe() : undefined;
+  const description = describe && !emittedDescribe.has(describe) ? describe() : undefined;
   if (description && describe) emittedDescribe.add(describe);
 
   emitLogger(logger, "onRunStart", {
@@ -137,21 +132,29 @@ export async function runContract<T>(
       currentRepairs = handled.repairs;
       previousError = createContractError(attemptDetails);
       previousCategory = detail.category;
-      emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+      emitRetry(
+        logger,
+        contractName,
+        runHandle,
+        attemptNum,
+        detail.category,
+        options.retry.maxAttempts,
+        options.retry,
+      );
       continue;
     }
 
     emitLogger(logger, "onRawOutput", { contractName, runHandle, attempt: attemptNum, raw });
     const cleaned = clean(raw);
-    emitLogger(logger, "onCleanedOutput", { contractName, runHandle, attempt: attemptNum, cleaned });
+    emitLogger(logger, "onCleanedOutput", {
+      contractName,
+      runHandle,
+      attempt: attemptNum,
+      cleaned,
+    });
     if (cleaned === null || cleaned === undefined) {
       const category = classify(raw, cleaned);
-      const detail = createAttemptDetail(
-        raw,
-        cleaned,
-        [describeFailure(category, raw)],
-        category,
-      );
+      const detail = createAttemptDetail(raw, cleaned, [describeFailure(category, raw)], category);
       const handled = handleFailure(
         contractName,
         runHandle,
@@ -178,7 +181,15 @@ export async function runContract<T>(
       currentRepairs = handled.repairs;
       previousError = createContractError(attemptDetails);
       previousCategory = detail.category;
-      emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+      emitRetry(
+        logger,
+        contractName,
+        runHandle,
+        attemptNum,
+        detail.category,
+        options.retry.maxAttempts,
+        options.retry,
+      );
       continue;
     }
 
@@ -200,12 +211,7 @@ export async function runContract<T>(
         data: verifyResult.data,
         totalDurationMs: Date.now() - totalStart,
       });
-      return success(
-        verifyResult.data,
-        attemptNum,
-        raw,
-        Date.now() - totalStart,
-      );
+      return success(verifyResult.data, attemptNum, raw, Date.now() - totalStart);
     }
 
     const verifyDetail = verifyResult.error.attempts[0];
@@ -250,7 +256,15 @@ export async function runContract<T>(
     currentRepairs = handled.repairs;
     previousError = createContractError(attemptDetails);
     previousCategory = detail.category;
-    emitRetry(logger, contractName, runHandle, attemptNum, detail.category, options.retry.maxAttempts, options.retry);
+    emitRetry(
+      logger,
+      contractName,
+      runHandle,
+      attemptNum,
+      detail.category,
+      options.retry.maxAttempts,
+      options.retry,
+    );
   }
 
   const contractError = createContractError(attemptDetails);
@@ -284,15 +298,7 @@ function handleFailure<T>(
   logger: ContractLogger<T> | undefined,
 ): { shouldStop: boolean; repairs: Message[] } {
   attemptDetails.push(detail);
-  emitAttempt(
-    options,
-    attemptNum,
-    false,
-    raw,
-    detail.issues,
-    Date.now() - start,
-    detail.category,
-  );
+  emitAttempt(options, attemptNum, false, raw, detail.issues, Date.now() - start, detail.category);
 
   const repairResult = repair(detail, options.repairs);
   if (repairResult === false) {

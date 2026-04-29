@@ -25,8 +25,10 @@ describe("integration: full pipeline", () => {
       ),
     });
 
-    const result = await enforce(InvoiceSchema, async () => {
-      return `
+    const result = await enforce(
+      InvoiceSchema,
+      async () => {
+        return `
 Here is the extracted data:
 
 \`\`\`json
@@ -42,7 +44,9 @@ Here is the extracted data:
 \`\`\`
 
 Let me know if you need anything else!`;
-    }, { name: "invoice-extraction" });
+      },
+      { name: "invoice-extraction" },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -59,13 +63,17 @@ Let me know if you need anything else!`;
     });
 
     let attemptNum = 0;
-    const result = await enforce(ScoreSchema, async (attempt: ContractAttempt) => {
-      attemptNum++;
-      if (attemptNum === 1) {
-        return '{"score": "85", "grade": "excellent"}';
-      }
-      return '{"score": "85", "grade": "A"}';
-    }, { name: "score-coercion" });
+    const result = await enforce(
+      ScoreSchema,
+      async (_attempt: ContractAttempt) => {
+        attemptNum++;
+        if (attemptNum === 1) {
+          return '{"score": "85", "grade": "excellent"}';
+        }
+        return '{"score": "85", "grade": "A"}';
+      },
+      { name: "score-coercion" },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -178,20 +186,30 @@ describe("integration: multi-step chain", () => {
       stepCount: z.number(),
     });
 
-    const planResult = await enforce(PlanSchema, async () => {
-      return '{"steps": ["analyze", "implement", "test"]}';
-    }, { name: "plan" });
+    const planResult = await enforce(
+      PlanSchema,
+      async () => {
+        return '{"steps": ["analyze", "implement", "test"]}';
+      },
+      { name: "plan" },
+    );
 
     expect(planResult.ok).toBe(true);
-    if (!planResult.ok) { return; }
+    if (!planResult.ok) {
+      return;
+    }
 
-    const summaryResult = await enforce(SummarySchema, async () => {
-      const stepCount = planResult.data.steps.length;
-      return JSON.stringify({
-        summary: `Plan has ${stepCount} steps`,
-        stepCount,
-      });
-    }, { name: "summary" });
+    const summaryResult = await enforce(
+      SummarySchema,
+      async () => {
+        const stepCount = planResult.data.steps.length;
+        return JSON.stringify({
+          summary: `Plan has ${stepCount} steps`,
+          stepCount,
+        });
+      },
+      { name: "summary" },
+    );
 
     expect(summaryResult.ok).toBe(true);
     if (summaryResult.ok) {
@@ -228,7 +246,7 @@ describe("integration: error classification end-to-end", () => {
     let attempts = 0;
     const result = await enforce(
       z.object({ name: z.string(), age: z.number() }),
-      async (attempt) => {
+      async (_attempt) => {
         attempts++;
         if (attempts === 1) {
           return '{"name": "Alice", "age":';
@@ -261,9 +279,7 @@ describe("integration: error classification end-to-end", () => {
       {
         name: "no-json-override",
         repairs: {
-          NO_JSON: () => [
-            { role: "user", content: "DOMAIN: respond as JSON extraction" },
-          ],
+          NO_JSON: () => [{ role: "user", content: "DOMAIN: respond as JSON extraction" }],
         },
       },
     );

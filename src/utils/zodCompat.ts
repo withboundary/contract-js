@@ -40,9 +40,7 @@ function v3Def(schema: unknown): Record<string, any> | null {
   if (isV4(schema)) return null;
   if (typeof schema !== "object" || schema === null) return null;
   const def = (schema as { _def?: unknown })._def;
-  return typeof def === "object" && def !== null
-    ? (def as Record<string, any>)
-    : null;
+  return typeof def === "object" && def !== null ? (def as Record<string, any>) : null;
 }
 
 export function kindOf(schema: AnyZodSchema): SchemaKind {
@@ -563,9 +561,7 @@ export function getTypeTag(schema: AnyZodSchema): string {
 
 // ── shape / element / options accessors ──────────────────────────────────────
 
-export function getObjectShape(
-  schema: AnyZodSchema,
-): Record<string, AnyZodSchema> | null {
+export function getObjectShape(schema: AnyZodSchema): Record<string, AnyZodSchema> | null {
   if (kindOf(schema) !== "object") return null;
   // Both zod v3 (getter on ZodObject) and v4 (same) expose `.shape`.
   const shape = (schema as { shape?: unknown }).shape;
@@ -623,9 +619,7 @@ export function getNativeEnumValues(schema: AnyZodSchema): string[] | null {
   const v3 = v3Def(schema);
   const values = v3?.values;
   if (!values || typeof values !== "object") return null;
-  return Object.values(values).filter(
-    (v): v is string => typeof v === "string",
-  );
+  return Object.values(values).filter((v): v is string => typeof v === "string");
 }
 
 export function getLiteralValue(schema: AnyZodSchema): unknown {
@@ -666,14 +660,9 @@ export interface SafeParseResult<T> {
   issues?: Array<{ path: Array<string | number>; message: string }>;
 }
 
-export function safeParse<T>(
-  schema: AnyZodSchema,
-  data: unknown,
-): SafeParseResult<T> {
+export function safeParse<T>(schema: AnyZodSchema, data: unknown): SafeParseResult<T> {
   // Both v3 and v4 schemas expose `.safeParse`.
-  const result = (
-    schema as { safeParse: (d: unknown) => unknown }
-  ).safeParse(data);
+  const result = (schema as { safeParse: (d: unknown) => unknown }).safeParse(data);
   if (!result || typeof result !== "object") {
     return { success: false };
   }

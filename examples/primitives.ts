@@ -16,9 +16,7 @@ console.log("=== clean ===");
 const fromFences = clean('```json\n{"score": 85}\n```');
 console.log("From fences:", fromFences);
 
-const fromProse = clean(
-  'Here is the analysis:\n\n{"score": 85}\n\nHope that helps!',
-);
+const fromProse = clean('Here is the analysis:\n\n{"score": 85}\n\nHope that helps!');
 console.log("From prose:", fromProse);
 
 const coerced = clean('{"score": "85", "passing": "true"}');

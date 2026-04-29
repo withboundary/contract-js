@@ -1,160 +1,286 @@
 # API Reference
 
-## `enforce(schema, run, options?)`
+`@withboundary/contract` is a local acceptance engine for structured LLM output.
+It exports a small public surface: `defineContract`, `enforce`, lifecycle
+loggers, and engine primitives for custom pipelines.
 
-The full contract loop. Runs your function, cleans the output, validates against the schema, retries with targeted repair on failure.
+## `defineContract(config)`
 
-```typescript
-function enforce<T>(
-  schema: ZodType<T>,
-  run: (attempt: AttemptContext) => Promise<string | null>,
-  options?: EnforceOptions<T>,
-): Promise<Result<T>>
+Define a reusable contract with a required name, a Zod schema, optional rules,
+retry policy, repair overrides, and logger hooks.
+
+```ts
+import { defineContract } from "@withboundary/contract";
+import { z } from "zod";
+
+const LeadScore = z.object({
+  tier: z.enum(["hot", "warm", "cold"]),
+  score: z.number().min(0).max(100),
+});
+
+const contract = defineContract({
+  name: "lead-scoring",
+  schema: LeadScore,
+  rules: [
+    {
+      name: "hot_requires_high_score",
+      description: "Hot leads must have a score of at least 70",
+      fields: ["tier", "score"],
+      check: (lead) =>
+        lead.tier !== "hot" ||
+        lead.score >= 70 ||
+        `tier is "hot" but score is ${lead.score} (minimum 70)`,
+    },
+  ],
+});
 ```
 
-**Parameters:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `schema` | `ZodType<T>` | Zod schema defining the expected output shape |
-| `run` | `(attempt) => Promise<string \| null>` | Your LLM call. Receives attempt context, returns raw output |
-| `options` | `EnforceOptions<T>` | Optional config (see below) |
-
-**AttemptContext** (passed to your `run` function):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `prompt` | `string` | Auto-generated prompt instructions from the schema |
-| `fixes` | `Message[]` | Repair messages from previous failed attempt (empty on first try) |
-| `number` | `number` | Current attempt number (1-indexed) |
-| `previousError` | `ContractError?` | Error details from the previous attempt |
-
-**EnforceOptions:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `maxAttempts` | `number` | `3` | Maximum number of attempts |
-| `backoff` | `"none" \| "linear" \| "exponential"` | `"none"` | Delay strategy between retries |
-| `backoffBaseMS` | `number` | `200` | Base delay in milliseconds |
-| `rules` | `Array<(data: T) => true \| string>` | `[]` | Constraints Zod can't express (cross-field checks, conditional logic, domain rules) |
-| `onAttempt` | `(event: AttemptEvent) => void` | — | Hook called after each attempt |
-| `repairs` | `Partial<Record<FailureCategory, RepairFn \| false>>` | — | Override or disable repair for specific failure categories |
-| `promptSuffix` | `string` | — | Appended to the auto-generated schema prompt. Use for domain-specific instructions without replacing the defaults |
-
-**Result:**
-
-```typescript
-type Result<T> = 
-  | { ok: true; data: T; attempts: number; raw: string; durationMS: number }
-  | { ok: false; error: ContractError }
+```ts
+function defineContract<T>(config: ContractConfig<T>): DefinedContract<T>;
 ```
 
----
+### `ContractConfig<T>`
 
-## `select(state, schema)`
+| Field          | Type                                                  | Description                                                    |
+| -------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| `name`         | `string`                                              | Required stable name for logs, traces, and diagnostics.        |
+| `schema`       | `z.ZodType<T>`                                        | Zod v3 or v4 schema for the accepted output.                   |
+| `rules`        | `Rule<T>[]`                                           | Named deterministic checks beyond the schema.                  |
+| `retry`        | `RetryOptions`                                        | Retry policy. Defaults to 3 attempts, no backoff.              |
+| `repairs`      | `Partial<Record<FailureCategory, RepairFn \| false>>` | Override or disable repair messages by category.               |
+| `instructions` | `{ suffix?: string }`                                 | Add domain-specific text after generated schema instructions.  |
+| `onAttempt`    | `AttemptHook`                                         | Synchronous hook fired after each attempt.                     |
+| `logger`       | `ContractLogger<T>`                                   | Lifecycle logger for console, Boundary SDK, or custom sinks.   |
+| `debug`        | `boolean`                                             | Enables built-in debug output.                                 |
+| `model`        | `string`                                              | Metadata label that logger sinks can attach to emitted events. |
 
-Strips a state object down to only the fields the schema defines. Prevents sending unnecessary data — PII, secrets, unrelated fields — to the LLM.
+### `contract.accept(run, runtimeOptions?)`
 
-```typescript
-function select<T>(
-  state: Record<string, unknown>,
-  schema: ZodType<T>,
-): Record<string, unknown>
-```
+Run the acceptance loop. Runtime options merge over the contract definition for
+that call only.
 
-```typescript
-select(
-  { name: "Alice", email: "a@co.com", ssn: "123-45-6789", passwordHash: "..." },
-  z.object({ name: z.string(), email: z.string() }),
+```ts
+const result = await contract.accept(
+  async (attempt) => {
+    const res = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: [
+        { role: "system", content: attempt.instructions },
+        { role: "user", content: "Score this lead..." },
+        ...attempt.repairs,
+      ],
+    });
+
+    return res.output_text;
+  },
+  { model: "gpt-4.1-mini" },
 );
-// { name: "Alice", email: "a@co.com" }
 ```
 
----
+### `ContractAttempt`
 
-## `prompt(schema)`
+The `run` function receives this context on every attempt:
 
-Generates prompt instructions from a Zod schema. Used internally by `enforce` to populate `attempt.prompt`. You can also use it directly if you're building prompts manually.
+| Field              | Type              | Description                                                              |
+| ------------------ | ----------------- | ------------------------------------------------------------------------ |
+| `attempt`          | `number`          | Current attempt number, 1-indexed.                                       |
+| `maxAttempts`      | `number`          | Maximum attempts for this run.                                           |
+| `instructions`     | `string`          | Schema-derived output instructions.                                      |
+| `repairs`          | `Message[]`       | Repair messages generated from the previous failure. Empty on attempt 1. |
+| `previousError`    | `ContractError`   | Full error state from the previous failed attempt.                       |
+| `previousCategory` | `FailureCategory` | Failure category from the previous failed attempt.                       |
 
-```typescript
-function prompt(schema: ZodType): string
+## `enforce(schema, run, options)`
+
+One-off shorthand for `defineContract(...).accept(...)`. `options.name` is
+required so the run has a stable identity.
+
+```ts
+const result = await enforce(LeadScore, runLLM, {
+  name: "lead-scoring",
+  rules,
+});
 ```
 
----
-
-## `clean(raw)`
-
-Normalizes raw LLM output into clean JSON.
-
-```typescript
-function clean(raw: string | null | undefined): unknown
+```ts
+function enforce<T>(
+  schema: ContractSchema<T>,
+  run: RunFn,
+  options: ContractOptions<T> & { name: string },
+): Promise<ContractResult<T>>;
 ```
 
-Handles:
-- Markdown fences (`` ```json ``, `` ```JSON ``, bare `` ``` ``)
-- Prose wrapping ("Here is the result: {...} Let me know!")
-- Type coercion (`"85"` → `85`, `"true"` → `true`)
-- Null/empty input
+## `ContractResult<T>`
 
-```typescript
-clean('```json\n{"score": 85}\n```');           // { score: 85 }
-clean('Here you go: {"score": "85"}');           // { score: 85 }
-clean('{"active": "true", "count": "3"}');       // { active: true, count: 3 }
+Validation failures are returned, not thrown. Your `run` function can throw;
+the engine captures that as a `RUN_ERROR` attempt and applies the retry policy.
+
+```ts
+type ContractResult<T> =
+  | {
+      ok: true;
+      data: T;
+      attempts: number;
+      raw: string;
+      durationMS: number;
+    }
+  | {
+      ok: false;
+      error: ContractError;
+    };
 ```
 
----
+## Rules
 
-## `check(data, schema, rules?)`
+Rules are named checks over parsed, typed data. They are the right place for
+cross-field math, policy consistency, confidence thresholds, and other business
+invariants that schemas cannot express cleanly.
 
-Validates data against a Zod schema and optional rules. Deterministic — no LLM involved.
-
-```typescript
-function check<T>(
-  data: unknown,
-  schema: ZodType<T>,
-  rules?: Rule<T>[],
-): Result<T>
+```ts
+type Rule<T> = {
+  name: string;
+  description?: string;
+  fields?: string[];
+  message?: string;
+  check: (data: T) => boolean | string;
+};
 ```
 
-```typescript
-check({ name: "Alice", age: 30 }, Schema);
-// { ok: true, data: { name: "Alice", age: 30 } }
+- Return `true` to pass.
+- Return `false` to fail with `message` or `"Rule failed"`.
+- Return a `string` to fail with that exact repair issue.
+- Set `fields` when the rule delegates to helpers or may be minified. Simple
+  field reads are inferred automatically.
 
-check({ name: "Alice", age: -5 }, Schema);
-// { ok: false, error: { attempts: [{ issues: ["age: Number must be greater than or equal to 0"] }] } }
+## `contract.describe()`
+
+Return the flattened schema and rule metadata used by logger sinks.
+
+```ts
+const description = contract.describe();
+// { schema: SchemaField[], rules: RuleDefinition[] }
 ```
 
----
+## `createConsoleLogger(options?)`
 
-## `fix(detail, repairs?)`
+Print lifecycle hooks for local debugging.
 
-Turns validation failures into targeted repair messages for the next attempt.
+```ts
+import { createConsoleLogger } from "@withboundary/contract";
 
-```typescript
-function fix(detail: AttemptDetail, repairs?: Partial<Record<FailureCategory, RepairFn | false>>): Message[] | false
+const logger = createConsoleLogger({
+  showInstructions: false,
+  showRepairs: true,
+  showRawOutput: false,
+  showCleanedOutput: true,
+});
 ```
 
-```typescript
-fix(checkResult.error);
-// [{ role: "user", content: "Your previous response had validation errors:\n- age: ..." }]
+## `ContractLogger<T>`
+
+Logger hooks receive a stable `contractName` and a per-call `runHandle`.
+Use `runHandle` for any per-run scratch state so concurrent `accept()` calls
+on the same contract instance stay isolated.
+
+```ts
+type ContractLogger<T = unknown> = {
+  onRunStart?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    maxAttempts: number;
+    rulesCount: number;
+    model?: string;
+  }) => void;
+  onAttemptStart?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    attempt: number;
+    maxAttempts: number;
+    instructions: string;
+    repairs: unknown[];
+  }) => void;
+  onVerifySuccess?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    attempt: number;
+    data: T;
+    durationMs: number;
+  }) => void;
+  onVerifyFailure?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    attempt: number;
+    category: string;
+    issues: string[];
+    durationMs: number;
+  }) => void;
+  onRunSuccess?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    attempts: number;
+    data: T;
+    totalDurationMs: number;
+  }) => void;
+  onRunFailure?: (ctx: {
+    contractName: string;
+    runHandle: string;
+    attempts: number;
+    category?: string;
+    message: string;
+    totalDurationMs: number;
+  }) => void;
+};
 ```
 
----
+The exported type includes additional hooks for raw output, cleaned output,
+repair generation, and retry scheduling.
 
-## `classify(raw, cleaned)`
+## Engine Primitives
 
-Categorizes a failed LLM response into a `FailureCategory`:
+### `instructions(schema, options?)`
 
-```typescript
-type FailureCategory =
-  | "EMPTY_RESPONSE"
-  | "REFUSAL"
-  | "NO_JSON"
-  | "TRUNCATED"
-  | "PARSE_ERROR"
-  | "VALIDATION_ERROR"
-  | "RULE_ERROR"
-  | "RUN_ERROR"
+Generate schema-driven prompt instructions.
+
+```ts
+const text = instructions(LeadScore, {
+  suffix: "Use conservative scoring when evidence is ambiguous.",
+});
 ```
 
-Used internally by `enforce`. Available if you're building custom pipelines.
+### `clean(raw)`
+
+Extract and normalize JSON-like LLM output from Markdown fences, surrounding
+prose, stringified primitives, and common model formatting.
+
+````ts
+clean('```json\n{"score":"85","qualified":"true"}\n```');
+// { score: 85, qualified: true }
+````
+
+### `verify(data, schema, rules?)`
+
+Validate parsed data with a Zod schema and optional named rules.
+
+```ts
+const checked = verify({ tier: "hot", score: 25 }, LeadScore, rules);
+```
+
+### `repair(detail, overrides?)`
+
+Turn an attempt failure into messages for the next attempt. Return `false` to
+disable repair for a category.
+
+```ts
+if (!checked.ok) {
+  const messages = repair(checked.error.attempts[0]);
+}
+```
+
+### `classify(raw, cleaned)`
+
+Categorize failed output as `EMPTY_RESPONSE`, `REFUSAL`, `NO_JSON`,
+`TRUNCATED`, `PARSE_ERROR`, `VALIDATION_ERROR`, `RULE_ERROR`, or `RUN_ERROR`.
+
+```ts
+const category = classify("I'm sorry, I can't help with that.", null);
+```

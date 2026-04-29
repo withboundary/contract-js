@@ -12,9 +12,13 @@ const NAME = "sentiment-test";
 
 describe("enforce", () => {
   it("succeeds on first attempt with valid JSON", async () => {
-    const result = await enforce(Schema, async () => {
-      return '{"sentiment": "positive", "confidence": 0.95}';
-    }, { name: NAME });
+    const result = await enforce(
+      Schema,
+      async () => {
+        return '{"sentiment": "positive", "confidence": 0.95}';
+      },
+      { name: NAME },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -27,9 +31,13 @@ describe("enforce", () => {
   });
 
   it("succeeds on first attempt with fenced JSON", async () => {
-    const result = await enforce(Schema, async () => {
-      return '```json\n{"sentiment": "negative", "confidence": 0.8}\n```';
-    }, { name: NAME });
+    const result = await enforce(
+      Schema,
+      async () => {
+        return '```json\n{"sentiment": "negative", "confidence": 0.8}\n```';
+      },
+      { name: NAME },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -39,15 +47,19 @@ describe("enforce", () => {
 
   it("repairs and succeeds on retry", async () => {
     let callCount = 0;
-    const result = await enforce(Schema, async (attempt: ContractAttempt) => {
-      callCount++;
-      if (callCount === 1) {
-        return '{"sentiment": "great", "confidence": 0.9}';
-      }
-      expect(attempt.repairs.length).toBeGreaterThan(0);
-      expect(attempt.previousCategory).toBe("VALIDATION_ERROR");
-      return '{"sentiment": "positive", "confidence": 0.9}';
-    }, { name: NAME });
+    const result = await enforce(
+      Schema,
+      async (attempt: ContractAttempt) => {
+        callCount++;
+        if (callCount === 1) {
+          return '{"sentiment": "great", "confidence": 0.9}';
+        }
+        expect(attempt.repairs.length).toBeGreaterThan(0);
+        expect(attempt.previousCategory).toBe("VALIDATION_ERROR");
+        return '{"sentiment": "positive", "confidence": 0.9}';
+      },
+      { name: NAME },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -111,11 +123,10 @@ describe("enforce", () => {
   });
 
   it("classifies empty response", async () => {
-    const result = await enforce(
-      Schema,
-      async () => null,
-      { name: NAME, retry: { maxAttempts: 1 } },
-    );
+    const result = await enforce(Schema, async () => null, {
+      name: NAME,
+      retry: { maxAttempts: 1 },
+    });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -137,11 +148,10 @@ describe("enforce", () => {
   });
 
   it("classifies truncated JSON", async () => {
-    const result = await enforce(
-      Schema,
-      async () => '{"sentiment": "positive", "confidence":',
-      { name: NAME, retry: { maxAttempts: 1 } },
-    );
+    const result = await enforce(Schema, async () => '{"sentiment": "positive", "confidence":', {
+      name: NAME,
+      retry: { maxAttempts: 1 },
+    });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -231,9 +241,7 @@ describe("enforce", () => {
         name: NAME,
         retry: { maxAttempts: 3 },
         repairs: {
-          EMPTY_RESPONSE: () => [
-            { role: "user", content: "CUSTOM: please provide data" },
-          ],
+          EMPTY_RESPONSE: () => [{ role: "user", content: "CUSTOM: please provide data" }],
         },
       },
     );
@@ -265,17 +273,13 @@ describe("enforce", () => {
   it("fires onAttempt with category on failure", async () => {
     const events: AttemptEvent[] = [];
 
-    await enforce(
-      Schema,
-      async () => "Just some text.",
-      {
-        name: NAME,
-        retry: { maxAttempts: 1 },
-        onAttempt: (event) => {
-          events.push(event);
-        },
+    await enforce(Schema, async () => "Just some text.", {
+      name: NAME,
+      retry: { maxAttempts: 1 },
+      onAttempt: (event) => {
+        events.push(event);
       },
-    );
+    });
 
     expect(events).toHaveLength(1);
     expect(events[0].ok).toBe(false);
@@ -285,10 +289,14 @@ describe("enforce", () => {
   it("provides attempt.instructions from schema", async () => {
     let receivedInstructions = "";
 
-    await enforce(Schema, async (attempt) => {
-      receivedInstructions = attempt.instructions;
-      return '{"sentiment": "positive", "confidence": 0.9}';
-    }, { name: NAME });
+    await enforce(
+      Schema,
+      async (attempt) => {
+        receivedInstructions = attempt.instructions;
+        return '{"sentiment": "positive", "confidence": 0.9}';
+      },
+      { name: NAME },
+    );
 
     expect(receivedInstructions).toContain("JSON");
     expect(receivedInstructions).toContain("sentiment");
@@ -297,40 +305,50 @@ describe("enforce", () => {
   it("appends instructions.suffix to attempt.instructions", async () => {
     let receivedInstructions = "";
 
-    await enforce(Schema, async (attempt) => {
-      receivedInstructions = attempt.instructions;
-      return '{"sentiment": "positive", "confidence": 0.9}';
-    }, {
-      name: NAME,
-      instructions: {
-        suffix: "If an optional field is unknown, omit it.",
+    await enforce(
+      Schema,
+      async (attempt) => {
+        receivedInstructions = attempt.instructions;
+        return '{"sentiment": "positive", "confidence": 0.9}';
       },
-    });
+      {
+        name: NAME,
+        instructions: {
+          suffix: "If an optional field is unknown, omit it.",
+        },
+      },
+    );
 
     expect(receivedInstructions).toContain("sentiment");
-    expect(receivedInstructions).toContain(
-      "If an optional field is unknown, omit it.",
-    );
+    expect(receivedInstructions).toContain("If an optional field is unknown, omit it.");
   });
 
   it("does not modify instructions when suffix is not provided", async () => {
     let instructionsWithout = "";
     let instructionsWith = "";
 
-    await enforce(Schema, async (attempt) => {
-      instructionsWithout = attempt.instructions;
-      return '{"sentiment": "positive", "confidence": 0.9}';
-    }, { name: NAME });
-
-    await enforce(Schema, async (attempt) => {
-      instructionsWith = attempt.instructions;
-      return '{"sentiment": "positive", "confidence": 0.9}';
-    }, {
-      name: NAME,
-      instructions: {
-        suffix: "Extra instruction.",
+    await enforce(
+      Schema,
+      async (attempt) => {
+        instructionsWithout = attempt.instructions;
+        return '{"sentiment": "positive", "confidence": 0.9}';
       },
-    });
+      { name: NAME },
+    );
+
+    await enforce(
+      Schema,
+      async (attempt) => {
+        instructionsWith = attempt.instructions;
+        return '{"sentiment": "positive", "confidence": 0.9}';
+      },
+      {
+        name: NAME,
+        instructions: {
+          suffix: "Extra instruction.",
+        },
+      },
+    );
 
     expect(instructionsWith).toContain(instructionsWithout);
     expect(instructionsWith).toContain("Extra instruction.");
@@ -338,9 +356,13 @@ describe("enforce", () => {
   });
 
   it("coerces string types during clean", async () => {
-    const result = await enforce(Schema, async () => {
-      return '{"sentiment": "positive", "confidence": "0.85"}';
-    }, { name: NAME });
+    const result = await enforce(
+      Schema,
+      async () => {
+        return '{"sentiment": "positive", "confidence": "0.85"}';
+      },
+      { name: NAME },
+    );
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -359,17 +381,20 @@ describe("enforce", () => {
     let receivedInstructions = "";
     let attempts = 0;
 
-    const result = await contract.accept(async (attempt) => {
-      attempts++;
-      receivedInstructions = attempt.instructions;
-      if (attempts === 1) {
-        return "invalid";
-      }
-      return '{"sentiment":"positive","confidence":0.7}';
-    }, {
-      instructions: { suffix: "Runtime suffix." },
-      retry: { maxAttempts: 3 },
-    });
+    const result = await contract.accept(
+      async (attempt) => {
+        attempts++;
+        receivedInstructions = attempt.instructions;
+        if (attempts === 1) {
+          return "invalid";
+        }
+        return '{"sentiment":"positive","confidence":0.7}';
+      },
+      {
+        instructions: { suffix: "Runtime suffix." },
+        retry: { maxAttempts: 3 },
+      },
+    );
 
     expect(result.ok).toBe(true);
     expect(receivedInstructions).toContain("Runtime suffix.");
@@ -388,17 +413,13 @@ describe("enforce", () => {
       },
     };
 
-    const result = await enforce(
-      Schema,
-      async () => '{"sentiment":"positive","confidence":0.92}',
-      {
-        name: NAME,
-        logger,
-        onAttempt: (event) => {
-          attemptEvents.push(event);
-        },
+    const result = await enforce(Schema, async () => '{"sentiment":"positive","confidence":0.92}', {
+      name: NAME,
+      logger,
+      onAttempt: (event) => {
+        attemptEvents.push(event);
       },
-    );
+    });
 
     expect(result.ok).toBe(true);
     expect(loggerCalls).toEqual(["onAttemptStart", "onRunSuccess"]);
@@ -409,15 +430,11 @@ describe("enforce", () => {
   it("supports debug convenience mode", async () => {
     const logger = createConsoleLogger();
 
-    const result = await enforce(
-      Schema,
-      async () => '{"sentiment":"neutral","confidence":0.88}',
-      {
-        name: NAME,
-        debug: true,
-        logger,
-      },
-    );
+    const result = await enforce(Schema, async () => '{"sentiment":"neutral","confidence":0.88}', {
+      name: NAME,
+      debug: true,
+      logger,
+    });
 
     expect(result.ok).toBe(true);
   });
@@ -430,8 +447,6 @@ describe("enforce", () => {
   });
 
   it("throws TypeError when name is empty string", () => {
-    expect(() => defineContract({ name: "   ", schema: Schema })).toThrow(
-      TypeError,
-    );
+    expect(() => defineContract({ name: "   ", schema: Schema })).toThrow(TypeError);
   });
 });

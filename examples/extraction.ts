@@ -99,8 +99,10 @@ async function main() {
         fields: ["lineItems", "subtotal"],
         check: (invoice: Invoice) => {
           const sum = invoice.lineItems.reduce((s, i) => s + i.amount, 0);
-          return Math.abs(sum - invoice.subtotal) < 0.01
-            || `line items sum to ${sum}, but subtotal is ${invoice.subtotal}`;
+          return (
+            Math.abs(sum - invoice.subtotal) < 0.01 ||
+            `line items sum to ${sum}, but subtotal is ${invoice.subtotal}`
+          );
         },
       },
       {
@@ -108,17 +110,21 @@ async function main() {
         description: "Subtotal plus tax must equal the total",
         fields: ["subtotal", "tax", "total"],
         check: (invoice: Invoice) =>
-          Math.abs(invoice.subtotal + invoice.tax - invoice.total) < 0.01
-            || `subtotal (${invoice.subtotal}) + tax (${invoice.tax}) = ${invoice.subtotal + invoice.tax}, but total is ${invoice.total}`,
+          Math.abs(invoice.subtotal + invoice.tax - invoice.total) < 0.01 ||
+          `subtotal (${invoice.subtotal}) + tax (${invoice.tax}) = ${invoice.subtotal + invoice.tax}, but total is ${invoice.total}`,
       },
       {
         name: "line_item_math",
         description: "Each line item's quantity × unitPrice must equal its amount",
         fields: ["lineItems"],
         check: (invoice: Invoice) => {
-          const bad = invoice.lineItems.find(i => Math.abs(i.quantity * i.unitPrice - i.amount) >= 0.01);
-          return !bad
-            || `${bad.description}: quantity (${bad.quantity}) × unitPrice (${bad.unitPrice}) = ${bad.quantity * bad.unitPrice}, but amount is ${bad.amount}`;
+          const bad = invoice.lineItems.find(
+            (i) => Math.abs(i.quantity * i.unitPrice - i.amount) >= 0.01,
+          );
+          return (
+            !bad ||
+            `${bad.description}: quantity (${bad.quantity}) × unitPrice (${bad.unitPrice}) = ${bad.quantity * bad.unitPrice}, but amount is ${bad.amount}`
+          );
         },
       },
     ],

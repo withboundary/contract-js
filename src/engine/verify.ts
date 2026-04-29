@@ -1,9 +1,4 @@
-import type {
-  ContractResult,
-  ContractSchema,
-  Rule,
-  RuleIssue,
-} from "../contract/types.js";
+import type { ContractResult, ContractSchema, Rule, RuleIssue } from "../contract/types.js";
 import { inferRuleFields } from "../utils/inferRuleFields.js";
 import { safeParse } from "../utils/zodCompat.js";
 import { createAttemptDetail, createContractError, failure } from "../result/failure.js";
@@ -36,13 +31,9 @@ export function verify<T>(
       const result = rule.check(typed);
       if (result === true) continue;
       const message =
-        typeof result === "string" && result.length > 0
-          ? result
-          : rule.message ?? "Rule failed";
+        typeof result === "string" && result.length > 0 ? result : (rule.message ?? "Rule failed");
       const fields =
-        rule.fields && rule.fields.length > 0
-          ? rule.fields
-          : inferRuleFields(rule.check);
+        rule.fields && rule.fields.length > 0 ? rule.fields : inferRuleFields(rule.check);
       ruleIssues.push({
         rule: {
           name: rule.name,
@@ -64,12 +55,7 @@ export function verify<T>(
     }
   }
 
-  return success(
-    typed,
-    1,
-    typeof data === "string" ? data : JSON.stringify(data),
-    0,
-  );
+  return success(typed, 1, typeof data === "string" ? data : JSON.stringify(data), 0);
 }
 
 // Flatten normalized zod issues (from zodCompat.safeParse) into the dotted-path

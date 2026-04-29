@@ -26,8 +26,7 @@ export function createConsoleLogger<T = unknown>(
   // Format the prefix with the contract name so lines read:
   //   [boundary] lead-scoring · Run started
   // instead of hiding the contract identity in a separate line.
-  const scoped = (contractName: string): string =>
-    `${resolvedOptions.prefix} ${contractName} ·`;
+  const scoped = (contractName: string): string => `${resolvedOptions.prefix} ${contractName} ·`;
 
   return {
     onRunStart(ctx) {
@@ -42,24 +41,14 @@ export function createConsoleLogger<T = unknown>(
     },
     onAttemptStart(ctx) {
       const lines: string[] = [
-        heading(
-          scoped(ctx.contractName),
-          `Attempt ${ctx.attempt}/${ctx.maxAttempts}`,
-        ),
+        heading(scoped(ctx.contractName), `Attempt ${ctx.attempt}/${ctx.maxAttempts}`),
       ];
       if (resolvedOptions.showInstructions) {
-        lines.push(
-          ...block(
-            "Instructions:",
-            stringifyUnknown(ctx.instructions, resolvedOptions),
-          ),
-        );
+        lines.push(...block("Instructions:", stringifyUnknown(ctx.instructions, resolvedOptions)));
       }
       if (resolvedOptions.showRepairs) {
         const repairsBody =
-          ctx.repairs.length === 0
-            ? "(none)"
-            : stringifyUnknown(ctx.repairs, resolvedOptions);
+          ctx.repairs.length === 0 ? "(none)" : stringifyUnknown(ctx.repairs, resolvedOptions);
         lines.push(...block("Repairs:", repairsBody));
       }
       print(...lines);
@@ -78,19 +67,13 @@ export function createConsoleLogger<T = unknown>(
         return;
       }
       print(
-        heading(
-          scoped(ctx.contractName),
-          `Cleaned output (attempt ${ctx.attempt})`,
-        ),
+        heading(scoped(ctx.contractName), `Cleaned output (attempt ${ctx.attempt})`),
         stringifyUnknown(ctx.cleaned, resolvedOptions),
       );
     },
     onVerifySuccess(ctx) {
       const lines = [
-        heading(
-          scoped(ctx.contractName),
-          `Verification passed (attempt ${ctx.attempt})`,
-        ),
+        heading(scoped(ctx.contractName), `Verification passed (attempt ${ctx.attempt})`),
         `Duration: ${ctx.durationMs}ms`,
       ];
       if (resolvedOptions.showSuccessData) {
@@ -99,21 +82,20 @@ export function createConsoleLogger<T = unknown>(
       print(...lines);
     },
     onVerifyFailure(ctx) {
-      const issuesBody = ctx.ruleIssues && ctx.ruleIssues.length > 0
-        ? ctx.ruleIssues
-            .map((issue) => {
-              const fields = issue.rule.fields && issue.rule.fields.length > 0
-                ? ` [${issue.rule.fields.join(", ")}]`
-                : "";
-              return `- ${issue.rule.name}${fields}: ${issue.message}`;
-            })
-            .join("\n")
-        : ctx.issues.map((issue) => `- ${issue}`).join("\n");
+      const issuesBody =
+        ctx.ruleIssues && ctx.ruleIssues.length > 0
+          ? ctx.ruleIssues
+              .map((issue) => {
+                const fields =
+                  issue.rule.fields && issue.rule.fields.length > 0
+                    ? ` [${issue.rule.fields.join(", ")}]`
+                    : "";
+                return `- ${issue.rule.name}${fields}: ${issue.message}`;
+              })
+              .join("\n")
+          : ctx.issues.map((issue) => `- ${issue}`).join("\n");
       print(
-        heading(
-          scoped(ctx.contractName),
-          `Verification failed (attempt ${ctx.attempt})`,
-        ),
+        heading(scoped(ctx.contractName), `Verification failed (attempt ${ctx.attempt})`),
         `Category: ${ctx.category}`,
         `Issues:\n${issuesBody}`,
         `Duration: ${ctx.durationMs}ms`,
@@ -121,20 +103,14 @@ export function createConsoleLogger<T = unknown>(
     },
     onRepairGenerated(ctx) {
       print(
-        heading(
-          scoped(ctx.contractName),
-          `Repair generated (attempt ${ctx.attempt})`,
-        ),
+        heading(scoped(ctx.contractName), `Repair generated (attempt ${ctx.attempt})`),
         `Category: ${ctx.category}`,
         ctx.repairMessage,
       );
     },
     onRetryScheduled(ctx) {
       print(
-        heading(
-          scoped(ctx.contractName),
-          `Retry scheduled (attempt ${ctx.attempt})`,
-        ),
+        heading(scoped(ctx.contractName), `Retry scheduled (attempt ${ctx.attempt})`),
         `Next attempt: ${ctx.nextAttempt}`,
         `Category: ${ctx.category}`,
         `Delay: ${ctx.delayMs}ms`,

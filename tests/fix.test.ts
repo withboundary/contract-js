@@ -121,9 +121,7 @@ describe("repair", () => {
 
       const messages = asMessages(
         repair(detail, {
-          REFUSAL: () => [
-            { role: "user", content: "Custom refusal handler" },
-          ],
+          REFUSAL: () => [{ role: "user", content: "Custom refusal handler" }],
         }),
       );
       expect(messages[0].content).toBe("Custom refusal handler");

@@ -2,10 +2,33 @@
   "name": "@withboundary/contract",
   "version": "1.4.1",
   "description": "Make LLM outputs correct, not just valid. Schema + rules + auto-repair.",
+  "keywords": [
+    "anthropic",
+    "boundary",
+    "contract",
+    "correctness",
+    "json-schema",
+    "llm",
+    "openai",
+    "repair",
+    "retry",
+    "rules",
+    "structured-output",
+    "validation",
+    "zod"
+  ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/withboundary/contract-js.git"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "API.md",
+    "EXAMPLES.md",
+    "LICENSE"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,47 +38,34 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "changeset": "changeset",
     "release": "changeset publish",
-    "prepublishOnly": "npm run lint && npm run test && npm run build"
-  },
-  "peerDependencies": {
-    "zod": "^3.25.0 || ^4.0.0"
+    "prepublishOnly": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run build"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
     "@changesets/cli": "^2.29.8",
     "@types/node": "^22.19.17",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5",
     "zod": "^4.0.0",
     "zod-v3": "npm:zod@^3.25.76"
   },
-  "keywords": [
-    "llm",
-    "structured-output",
-    "correctness",
-    "validation",
-    "openai",
-    "anthropic",
-    "zod",
-    "json-schema",
-    "contract",
-    "rules",
-    "repair",
-    "retry",
-    "boundary"
-  ],
-  "license": "MIT",
+  "peerDependencies": {
+    "zod": "^3.25.0 || ^4.0.0"
+  },
   "engines": {
     "node": ">=20"
   }
