@@ -6,9 +6,7 @@ export const DEFAULT_RETRY_POLICY: RetryPolicy = {
   baseMs: 200,
 };
 
-export function resolveRetryPolicy(
-  options?: Partial<RetryPolicy>,
-): RetryPolicy {
+export function resolveRetryPolicy(options?: Partial<RetryPolicy>): RetryPolicy {
   return {
     maxAttempts: options?.maxAttempts ?? DEFAULT_RETRY_POLICY.maxAttempts,
     backoff: options?.backoff ?? DEFAULT_RETRY_POLICY.backoff,

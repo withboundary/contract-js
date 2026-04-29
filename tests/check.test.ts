@@ -18,10 +18,7 @@ describe("verify", () => {
     });
 
     it("strips extra fields via Zod", () => {
-      const result = verify(
-        { name: "Alice", age: 30, extra: "field" },
-        Schema,
-      );
+      const result = verify({ name: "Alice", age: 30, extra: "field" }, Schema);
       expect(result.ok).toBe(true);
     });
   });
@@ -72,23 +69,15 @@ describe("verify", () => {
     });
 
     it("validates nested objects", () => {
-      const result = verify(
-        { user: { name: "Alice", address: { city: "NYC" } } },
-        NestedSchema,
-      );
+      const result = verify({ user: { name: "Alice", address: { city: "NYC" } } }, NestedSchema);
       expect(result.ok).toBe(true);
     });
 
     it("reports path for nested failures", () => {
-      const result = verify(
-        { user: { name: "Alice", address: { city: 123 } } },
-        NestedSchema,
-      );
+      const result = verify({ user: { name: "Alice", address: { city: 123 } } }, NestedSchema);
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.attempts[0].issues[0]).toContain(
-          "user.address.city",
-        );
+        expect(result.error.attempts[0].issues[0]).toContain("user.address.city");
       }
     });
   });
@@ -183,9 +172,7 @@ describe("verify", () => {
       ]);
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.attempts[0].ruleIssues![0]!.message).toBe(
-          "must be an adult",
-        );
+        expect(result.error.attempts[0].ruleIssues![0]!.message).toBe("must be an adult");
       }
     });
 

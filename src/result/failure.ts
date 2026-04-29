@@ -12,9 +12,7 @@ export function failure(error: ContractError): Failure {
 
 export function createContractError(attempts: AttemptDetail[]): ContractError {
   const lastAttempt = attempts[attempts.length - 1];
-  const issuesSummary = lastAttempt
-    ? lastAttempt.issues.join("; ")
-    : "unknown error";
+  const issuesSummary = lastAttempt ? lastAttempt.issues.join("; ") : "unknown error";
   const category = lastAttempt?.category ?? "VALIDATION_ERROR";
   return {
     message: `Contract failed after ${attempts.length} attempt(s) [${category}]: ${issuesSummary}`,

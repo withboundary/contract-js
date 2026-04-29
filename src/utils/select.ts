@@ -1,9 +1,4 @@
-import {
-  kindOf,
-  unwrapOne,
-  getObjectShape,
-  type AnyZodSchema,
-} from "./zodCompat.js";
+import { kindOf, unwrapOne, getObjectShape, type AnyZodSchema } from "./zodCompat.js";
 
 export function select(
   state: Record<string, unknown>,

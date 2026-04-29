@@ -40,15 +40,11 @@ function describeSchema(schema: AnyZodSchema, depth: number): string {
       return `${indent}array of:\n${itemDesc}`;
     }
     case "enum": {
-      const values = (getEnumOptions(unwrapped) ?? [])
-        .map((v) => `"${v}"`)
-        .join(" | ");
+      const values = (getEnumOptions(unwrapped) ?? []).map((v) => `"${v}"`).join(" | ");
       return `${indent}one of: ${values}`;
     }
     case "nativeEnum": {
-      const values = (getNativeEnumValues(unwrapped) ?? [])
-        .map((v) => `"${v}"`)
-        .join(" | ");
+      const values = (getNativeEnumValues(unwrapped) ?? []).map((v) => `"${v}"`).join(" | ");
       return `${indent}one of: ${values}`;
     }
     case "literal":

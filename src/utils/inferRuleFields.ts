@@ -83,7 +83,10 @@ function extractParamName(src: string): string | null {
   // Arrow with parens: `(d, ...)` → first non-empty name up to `,` or `)`
   const arrowParens = src.match(/^\s*\(\s*([^,)]*)(?:,[^)]*)?\)\s*=>/);
   if (arrowParens) {
-    const name = arrowParens[1].trim().replace(/\s*:\s*[^,)]*$/, "").trim();
+    const name = arrowParens[1]
+      .trim()
+      .replace(/\s*:\s*[^,)]*$/, "")
+      .trim();
     return isIdentifier(name) ? name : null;
   }
   // Arrow bare: `d => …`
@@ -92,7 +95,10 @@ function extractParamName(src: string): string | null {
   // Classic function: `function [name](d, ...)`
   const fn = src.match(/^\s*function\b[^(]*\(\s*([^,)]*)(?:,[^)]*)?\)/);
   if (fn) {
-    const name = fn[1].trim().replace(/\s*:\s*[^,)]*$/, "").trim();
+    const name = fn[1]
+      .trim()
+      .replace(/\s*:\s*[^,)]*$/, "")
+      .trim();
     return isIdentifier(name) ? name : null;
   }
   return null;
@@ -106,10 +112,7 @@ function findAccesses(src: string, param: string): string[] | undefined {
   const escaped = param.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // (?<![.\w$]) — not preceded by another identifier char or dot
   // (?:\?\.|\.) — either optional chaining `?.` or plain `.`
-  const re = new RegExp(
-    `(?<![.\\w$])${escaped}(?:\\?\\.|\\.)([A-Za-z_$][A-Za-z0-9_$]*)`,
-    "g",
-  );
+  const re = new RegExp(`(?<![.\\w$])${escaped}(?:\\?\\.|\\.)([A-Za-z_$][A-Za-z0-9_$]*)`, "g");
   const fields = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = re.exec(src)) !== null) {

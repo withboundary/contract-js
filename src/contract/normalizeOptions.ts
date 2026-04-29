@@ -15,9 +15,7 @@ export interface NormalizedContractOptions<T> {
   model?: string;
 }
 
-export function normalizeOptions<T>(
-  options?: ContractOptions<T>,
-): NormalizedContractOptions<T> {
+export function normalizeOptions<T>(options?: ContractOptions<T>): NormalizedContractOptions<T> {
   return {
     rules: options?.rules,
     repairs: options?.repairs,
@@ -47,14 +45,12 @@ export function mergeOptions<T>(
     rules: override?.rules ?? base?.rules,
     repairs: override?.repairs ?? base?.repairs,
     retry: {
-      maxAttempts:
-        override?.retry?.maxAttempts ?? base?.retry?.maxAttempts,
+      maxAttempts: override?.retry?.maxAttempts ?? base?.retry?.maxAttempts,
       backoff: override?.retry?.backoff ?? base?.retry?.backoff,
       baseMs: override?.retry?.baseMs ?? base?.retry?.baseMs,
     },
     instructions: {
-      suffix:
-        override?.instructions?.suffix ?? base?.instructions?.suffix,
+      suffix: override?.instructions?.suffix ?? base?.instructions?.suffix,
     },
     onAttempt: override?.onAttempt ?? base?.onAttempt,
     logger: override?.logger ?? base?.logger,
@@ -63,9 +59,7 @@ export function mergeOptions<T>(
   });
 }
 
-function resolveLogger<T>(
-  options?: ContractOptions<T>,
-): ContractLogger<T> | undefined {
+function resolveLogger<T>(options?: ContractOptions<T>): ContractLogger<T> | undefined {
   if (options?.logger) {
     return options.logger;
   }

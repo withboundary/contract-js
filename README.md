@@ -1,39 +1,17 @@
 # @withboundary/contract
 
 [![npm version](https://img.shields.io/npm/v/@withboundary/contract.svg)](https://www.npmjs.com/package/@withboundary/contract)
-[![license](https://img.shields.io/npm/l/@withboundary/contract.svg)](https://github.com/withboundary/contract/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/@withboundary/contract.svg)](https://github.com/withboundary/contract-js/blob/main/LICENSE)
 
-Your LLM already returns valid JSON.
-That doesn't mean it's correct.
+Make LLM output correct before it crosses into your system.
 
-`@withboundary/contract` enforces **domain correctness** — not just structure.
-It validates outputs against your rules, fixes failures automatically, and retries until the result is actually usable.
+`@withboundary/contract` is a local TypeScript engine for accepting structured
+LLM output. It cleans model responses, validates them with Zod, checks your
+domain rules, and gives the model targeted repair instructions when an attempt
+fails.
 
-No more:
-
-- silent logic errors
-- invalid business decisions
-- brittle retry loops
-
-## Why this exists
-
-LLM outputs fail in ways JSON validation can't catch:
-
-```json
-{
-  "tier": "hot",
-  "score": 25
-}
-```
-
-Valid JSON. Wrong for your system.
-
-Your logic requires: _hot leads must have score > 70._
-
-Schema validation passes. Your system breaks.
-
-Without a contract, this enters your system.
-With `@withboundary/contract`, it is rejected and repaired automatically.
+It does not call Boundary. It does not proxy your LLM traffic. It does not send
+telemetry. The only network calls are the ones you write in your `run` function.
 
 ## Install
 
@@ -41,229 +19,234 @@ With `@withboundary/contract`, it is rejected and repaired automatically.
 npm install @withboundary/contract zod
 ```
 
-## Quick example
+```bash
+pnpm add @withboundary/contract zod
+```
+
+## Quickstart
 
 ```ts
 import { enforce } from "@withboundary/contract";
 import { z } from "zod";
 
-const schema = z.object({
+const LeadScore = z.object({
   tier: z.enum(["hot", "warm", "cold"]),
-  score: z.number(),
+  score: z.number().min(0).max(100),
+  reason: z.string(),
 });
 
-const result = await enforce(schema, runLLM, {
-  name: "lead-scoring",
-  rules: [
-    {
-      name: "hot_requires_high_score",
-      description: "Hot leads must have a score of at least 70",
-      check: (lead) =>
-        lead.tier !== "hot" || lead.score >= 70
-          || `tier is "hot" but score is ${lead.score} (minimum 70 for hot)`,
-    },
-  ],
-});
+const result = await enforce(
+  LeadScore,
+  async (attempt) => {
+    const res = await openai.responses.create({
+      model: "gpt-4.1",
+      input: [
+        { role: "system", content: attempt.instructions },
+        { role: "user", content: "Score this lead: ACME, 500 employees..." },
+        ...attempt.repairs,
+      ],
+    });
+
+    return res.output_text;
+  },
+  {
+    name: "lead-scoring",
+    rules: [
+      {
+        name: "hot_requires_high_score",
+        description: "Hot leads must have a score of at least 70",
+        check: (lead) =>
+          lead.tier !== "hot" ||
+          lead.score >= 70 ||
+          `tier is "hot" but score is ${lead.score} (minimum 70)`,
+      },
+    ],
+  },
+);
 
 if (result.ok) {
-  result.data; // guaranteed correct
+  result.data;
+  // typed as { tier: "hot" | "warm" | "cold"; score: number; reason: string }
 }
 ```
 
-```ts
-async function runLLM(attempt) {
-  const res = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: attempt.instructions },
-      { role: "user", content: "Score this lead..." },
-      ...attempt.repairs,
-    ],
-  });
+If the model returns this:
 
-  return res.choices[0].message.content;
-}
+```json
+{ "tier": "hot", "score": 25, "reason": "Strong fit" }
 ```
 
-`result.data` is guaranteed to satisfy your schema **and** your rules.
+the schema passes, but the rule fails. The contract returns a repair message
+through `attempt.repairs`, retries your `run` function, and accepts only an
+output that satisfies the schema and every rule.
 
-## Correctness is just a function
+## Why Use It
 
-Schemas validate structure. Rules define what _correct_ means for your domain. Each rule is a named, deterministic check — `name` joins to per-rule failure attribution, `description` is the positive statement of the invariant, `check` returns `true` to pass or a string to fail.
+Schema validation catches wrong types. Contracts catch wrong decisions.
 
-```ts
-rules: [
-  {
-    name: "invoice_math_consistent",
-    description: "Subtotal plus tax must equal total within a cent",
-    check: (invoice) =>
-      Math.abs(invoice.subtotal + invoice.tax - invoice.total) < 0.01
-        || `subtotal + tax != total`,
-  },
-  {
-    name: "hot_requires_high_score",
-    description: "Hot leads must have a score of at least 70",
-    check: (lead) =>
-      lead.tier !== "hot" || lead.score >= 70
-        || `hot leads require score > 70`,
-  },
-  {
-    name: "end_after_start",
-    description: "End date is strictly after start date",
-    check: (range) => range.endDate > range.startDate || "end date must be after start date",
-  },
-]
-```
+| Problem                           | What the contract does                          |
+| --------------------------------- | ----------------------------------------------- |
+| JSON wrapped in Markdown or prose | `clean()` extracts and parses the JSON          |
+| `"85"` returned as a string       | Primitive coercion normalizes common LLM output |
+| Schema mismatch                   | Zod issues become targeted repair messages      |
+| Cross-field business rule failure | Named rules reject and explain the issue        |
+| Transient model failure           | The retry loop gives the model precise context  |
 
-The string a failed `check` returns becomes part of the repair prompt — the model sees exactly what to fix. `fields` is auto-inferred from the check function source; supply it explicitly only if you minify or your check delegates to a helper.
+## Define Once
 
-## What it does
-
-The model proposes an output.
-The contract decides if your system accepts it.
-
-If it fails:
-
-1. The error is classified
-2. A targeted repair is generated
-3. The model retries with context
-
-This repeats until the output is correct or retries are exhausted.
-
-### Failure categories
-
-| Category | Meaning |
-|----------|---------|
-| `EMPTY_RESPONSE` | Model returned nothing |
-| `REFUSAL` | Safety refusal detected |
-| `NO_JSON` | No JSON found in output |
-| `TRUNCATED` | Incomplete/cut-off output |
-| `PARSE_ERROR` | Invalid JSON |
-| `VALIDATION_ERROR` | Schema mismatch |
-| `RULE_ERROR` | Rule violation |
-| `RUN_ERROR` | Execution error |
-
-Each category produces different repair instructions, so the model gets specific feedback — not a generic "try again."
-
-## Result type
-
-```ts
-type ContractResult<T> =
-  | { ok: true; data: T; attempts: number; raw: string; durationMs: number }
-  | { ok: false; error: ContractError }
-```
-
-No exceptions. Pattern match on `ok`.
-
-## Reusable contracts
-
-Define once, reuse everywhere:
+Use `defineContract` when the same contract runs in more than one place.
 
 ```ts
 import { defineContract } from "@withboundary/contract";
 
 const leadContract = defineContract({
   name: "lead-scoring",
-  schema,
+  schema: LeadScore,
   rules: [
     {
       name: "hot_requires_high_score",
       description: "Hot leads must have a score of at least 70",
       check: (lead) =>
-        lead.tier !== "hot" || lead.score >= 70
-          || `hot leads require score > 70`,
+        lead.tier !== "hot" ||
+        lead.score >= 70 ||
+        `tier is "hot" but score is ${lead.score} (minimum 70)`,
     },
   ],
   retry: { maxAttempts: 4 },
 });
 
-const result = await leadContract.accept(runLLM);
-```
-
-## Observability
-
-Every attempt is structured.
-
-```ts
-const result = await enforce(schema, runLLM, {
-  onAttempt: (event) => {
-    console.log(event.attempt, event.category, event.durationMs);
-  },
+const result = await leadContract.accept(runLLM, {
+  model: "gpt-4.1-mini",
 });
 ```
 
-You know:
+Each `accept()` call is independent. Logger hooks receive both the stable
+`contractName` and a per-call `runHandle`, so observability sinks can isolate
+concurrent runs of the same contract instance.
 
-- why it failed
-- which rule was violated
-- how many retries it took
+## Rules
 
-For human-readable debugging:
+Rules are named deterministic checks over parsed, typed data.
+
+```ts
+rules: [
+  {
+    name: "invoice_math_consistent",
+    description: "Subtotal plus tax must equal total",
+    fields: ["subtotal", "tax", "total"],
+    check: (invoice) =>
+      Math.abs(invoice.subtotal + invoice.tax - invoice.total) < 0.01 ||
+      `subtotal + tax does not equal total`,
+  },
+  {
+    name: "line_items_required",
+    description: "Invoices must include at least one line item",
+    check: (invoice) => invoice.lineItems.length > 0 || "invoice has no line items",
+  },
+];
+```
+
+`check` returns `true` to pass. Return a string to fail with a repair message.
+`fields` is optional; the engine infers simple field reads from the function
+source. Set it explicitly when a rule delegates to helpers or is minified.
+
+## Result Shape
+
+`enforce` and `accept` never throw for validation failure. They return a
+discriminated union:
+
+```ts
+type ContractResult<T> =
+  | {
+      ok: true;
+      data: T;
+      attempts: number;
+      raw: string;
+      durationMS: number;
+    }
+  | {
+      ok: false;
+      error: ContractError;
+    };
+```
+
+Your `run` function can still throw. Thrown errors are captured as `RUN_ERROR`
+attempts and can be retried like other categories.
+
+## Observability
+
+For local debugging:
 
 ```ts
 import { createConsoleLogger } from "@withboundary/contract";
 
 const result = await enforce(schema, runLLM, {
+  name: "invoice-extraction",
   logger: createConsoleLogger({ showCleanedOutput: true }),
 });
 ```
 
-For production observability — acceptance rate, top failing rules, repair patterns, latency across every contract run — pair with [`@withboundary/sdk`](https://github.com/withboundary/sdk-js):
+For production observability, pair with the optional cloud/custom-sink SDK:
 
 ```ts
 import { createBoundaryLogger } from "@withboundary/sdk";
 
-defineContract({
-  // ...
-  logger: createBoundaryLogger({ apiKey: process.env.BOUNDARY_API_KEY }),
+const logger = createBoundaryLogger({
+  apiKey: process.env.BOUNDARY_API_KEY,
+  environment: "production",
+});
+
+const contract = defineContract({
+  name: "invoice-extraction",
+  schema,
+  rules,
+  logger,
 });
 ```
 
-It's optional. The contract engine is fully usable without it.
+Installing only `@withboundary/contract` keeps everything in process. Nothing is
+sent to Boundary unless you add `@withboundary/sdk` and pass a logger.
 
-## Use cheaper models safely
+## Engine Primitives
 
-Correctness is enforced by the contract — not the model.
+The core pieces are exported for custom pipelines:
 
-Run smaller models, retry when needed, and only escalate if necessary. The contract is the safety net.
+| Function                        | Purpose                                                       |
+| ------------------------------- | ------------------------------------------------------------- |
+| `clean(raw)`                    | Extract and normalize JSON-like LLM output                    |
+| `verify(data, schema, rules?)`  | Validate parsed data with schema and rules                    |
+| `classify(raw, cleaned)`        | Categorize empty, refusal, no JSON, truncated, parse failures |
+| `repair(detail, overrides?)`    | Build repair messages for the next attempt                    |
+| `instructions(schema)`          | Generate schema-driven prompt instructions                    |
+| `createConsoleLogger(options?)` | Print contract lifecycle hooks for debugging                  |
 
-## Engine primitives
+## Works With Any Model
 
-For custom pipelines, the individual steps are exported:
+Boundary owns the acceptance boundary. You own the provider call. Use OpenAI,
+Anthropic, Gemini, Mistral, local models, or any function that returns text.
 
-| Function | Purpose |
-|----------|---------|
-| `clean(raw)` | Normalize raw LLM output to JSON |
-| `verify(data, schema, rules?)` | Validate against schema + rules |
-| `classify(raw, cleaned)` | Categorize a failure |
-| `repair(detail)` | Generate repair messages |
-| `instructions(schema)` | Generate schema-driven prompt instructions |
+## Security Model
 
-## When not to use
-
-- Fully unstructured text (creative writing, essays)
-- Tasks without clear correctness criteria
-
-This works best when "correct" can be defined.
-
-## Works with any LLM
-
-Model-agnostic. Works with any provider that returns text — OpenAI, Anthropic, Google, Mistral, local models.
+- No fetch, HTTP client, API key, analytics, or background worker in this
+  package.
+- No prompt interception. The model call happens inside your `run` function.
+- No hidden persistence. Failed attempts are returned to your code in
+  `ContractResult`.
+- Optional observability lives in a separate package, `@withboundary/sdk`.
 
 ## Versioning
 
-Follows [semver](https://semver.org). Breaking API changes ship in major releases; new options and types ship in minor releases; bug fixes ship in patches. The optional companion package `@withboundary/sdk` declares this package as a peer dependency in the `^1.4.0` range — bump the engine and the SDK together at the major boundary.
-
-## License
-
-MIT
+Follows [semver](https://semver.org). Breaking API changes ship in major
+releases; new options and types ship in minor releases; non-breaking
+enhancements ship in patches. The optional companion package
+`@withboundary/sdk` declares this package as a peer dependency.
 
 ## Links
 
 - [Documentation](https://docs.withboundary.com)
-- [Examples](./examples)
+- [Examples](https://github.com/withboundary/contract-js/tree/main/examples)
+- [Example guide](./EXAMPLES.md)
+- [API reference](./API.md)
 - [Issues](https://github.com/withboundary/contract-js/issues)
 
----
-
-**Stop trusting LLM output. Start verifying it.**
+MIT

@@ -1,10 +1,5 @@
 import { defineContract } from "./defineContract.js";
-import type {
-  ContractOptions,
-  ContractResult,
-  ContractSchema,
-  RunFn,
-} from "./types.js";
+import type { ContractOptions, ContractResult, ContractSchema, RunFn } from "./types.js";
 
 // Shortcut for one-off contracts. `options.name` is required — every run
 // needs identity for logging, tracing, and the dashboard.

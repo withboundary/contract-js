@@ -4,27 +4,22 @@ import { inferRuleFields } from "../src/utils/inferRuleFields.js";
 describe("inferRuleFields", () => {
   describe("single-identifier param", () => {
     it("extracts a single field", () => {
-      expect(inferRuleFields((d: { score: number }) => d.score >= 90)).toEqual([
-        "score",
-      ]);
+      expect(inferRuleFields((d: { score: number }) => d.score >= 90)).toEqual(["score"]);
     });
 
     it("extracts multiple fields from a compound expression", () => {
-      const rule = (d: { score: number; tier: string }) =>
-        d.score > 0 && d.tier !== "cold";
+      const rule = (d: { score: number; tier: string }) => d.score > 0 && d.tier !== "cold";
       expect(inferRuleFields(rule)?.sort()).toEqual(["score", "tier"]);
     });
 
     it("returns top-level field only for nested access", () => {
-      expect(
-        inferRuleFields((d: { items: { id: string }[] }) => d.items.length > 0),
-      ).toEqual(["items"]);
+      expect(inferRuleFields((d: { items: { id: string }[] }) => d.items.length > 0)).toEqual([
+        "items",
+      ]);
     });
 
     it("handles optional chaining", () => {
-      expect(
-        inferRuleFields((d: { maybe?: number }) => d?.maybe === 1),
-      ).toEqual(["maybe"]);
+      expect(inferRuleFields((d: { maybe?: number }) => d?.maybe === 1)).toEqual(["maybe"]);
     });
 
     it("picks the first param when multiple are declared", () => {

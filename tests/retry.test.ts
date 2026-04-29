@@ -15,9 +15,7 @@ describe("resolveRetryPolicy", () => {
   });
 
   it("overrides backoff", () => {
-    expect(resolveRetryPolicy({ backoff: "exponential" }).backoff).toBe(
-      "exponential",
-    );
+    expect(resolveRetryPolicy({ backoff: "exponential" }).backoff).toBe("exponential");
   });
 
   it("overrides baseMs", () => {
@@ -27,15 +25,11 @@ describe("resolveRetryPolicy", () => {
 
 describe("computeRetryDelay", () => {
   it("returns 0 for first attempt", () => {
-    expect(
-      computeRetryDelay(1, { maxAttempts: 3, backoff: "exponential", baseMs: 200 }),
-    ).toBe(0);
+    expect(computeRetryDelay(1, { maxAttempts: 3, backoff: "exponential", baseMs: 200 })).toBe(0);
   });
 
   it("returns 0 for 'none' backoff", () => {
-    expect(
-      computeRetryDelay(3, { maxAttempts: 3, backoff: "none", baseMs: 200 }),
-    ).toBe(0);
+    expect(computeRetryDelay(3, { maxAttempts: 3, backoff: "none", baseMs: 200 })).toBe(0);
   });
 
   it("computes linear backoff", () => {

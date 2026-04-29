@@ -216,10 +216,7 @@ export interface Failure {
 }
 
 export interface DefinedContract<T> {
-  accept: (
-    run: RunFn,
-    runtimeOptions?: ContractOptions<T>,
-  ) => Promise<ContractResult<T>>;
+  accept: (run: RunFn, runtimeOptions?: ContractOptions<T>) => Promise<ContractResult<T>>;
   // Standalone introspection — returns the flat schema + rule metadata the
   // contract emits on its first event. Safe to call without running. Cached.
   describe: () => { schema: SchemaField[]; rules: RuleDefinition[] };

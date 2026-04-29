@@ -22,8 +22,7 @@ describe("clean", () => {
 
   describe("prose extraction", () => {
     it("extracts JSON from surrounding prose", () => {
-      const input =
-        'Here is the analysis:\n\n{"score": 85}\n\nLet me know if you need more.';
+      const input = 'Here is the analysis:\n\n{"score": 85}\n\nLet me know if you need more.';
       expect(clean(input)).toEqual({ score: 85 });
     });
 
@@ -32,7 +31,7 @@ describe("clean", () => {
     });
 
     it("extracts JSON array from prose", () => {
-      expect(clean('Here you go: [1, 2, 3]')).toEqual([1, 2, 3]);
+      expect(clean("Here you go: [1, 2, 3]")).toEqual([1, 2, 3]);
     });
   });
 
@@ -53,18 +52,13 @@ describe("clean", () => {
     });
 
     it("coerces nested values", () => {
-      expect(
-        clean('{"item": {"count": "3", "enabled": "true"}}'),
-      ).toEqual({
+      expect(clean('{"item": {"count": "3", "enabled": "true"}}')).toEqual({
         item: { count: 3, enabled: true },
       });
     });
 
     it("coerces values in arrays", () => {
-      expect(clean('[{"score": "85"}, {"score": "90"}]')).toEqual([
-        { score: 85 },
-        { score: 90 },
-      ]);
+      expect(clean('[{"score": "85"}, {"score": "90"}]')).toEqual([{ score: 85 }, { score: 90 }]);
     });
 
     it("does not coerce non-numeric strings", () => {

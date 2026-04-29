@@ -31,7 +31,8 @@ function simulateCheapModel(_attemptNumber: number): string {
 
 function simulateStrongModel(_attemptNumber: number): string {
   return JSON.stringify({
-    summary: "Contract review shows standard terms with minor risk areas in auto-renewal and liability",
+    summary:
+      "Contract review shows standard terms with minor risk areas in auto-renewal and liability",
     risks: [
       "Auto-renewal clause in section 4 — 90-day cancellation window",
       "Liability cap at 2x annual fee — below market rate",
@@ -52,8 +53,9 @@ async function analyzeCheap() {
         description: "Non-approve recommendations must cite at least one risk",
         fields: ["risks", "recommendation"],
         check: (analysis: Analysis) =>
-          analysis.risks.length > 0 || analysis.recommendation === "approve"
-            || "non-approve recommendation must cite at least one risk",
+          analysis.risks.length > 0 ||
+          analysis.recommendation === "approve" ||
+          "non-approve recommendation must cite at least one risk",
       },
     ],
     onAttempt: (event) => {
@@ -76,8 +78,9 @@ async function analyzeStrong() {
         description: "Non-approve recommendations must cite at least one risk",
         fields: ["risks", "recommendation"],
         check: (analysis: Analysis) =>
-          analysis.risks.length > 0 || analysis.recommendation === "approve"
-            || "non-approve recommendation must cite at least one risk",
+          analysis.risks.length > 0 ||
+          analysis.recommendation === "approve" ||
+          "non-approve recommendation must cite at least one risk",
       },
     ],
     onAttempt: (event) => {

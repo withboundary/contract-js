@@ -10,7 +10,7 @@ import { runContract } from "./runContract.js";
 import { inferRuleFields } from "../utils/inferRuleFields.js";
 import { zodToSchemaFields } from "./zodToSchemaFields.js";
 
-// Caps mirror the ingest Zod validators in apps/api/src/routes/ingest.ts.
+// Caps mirror Boundary ingest limits.
 const MAX_RULE_NAME = 128;
 const MAX_RULE_EXPRESSION = 2000;
 const MAX_RULE_DESCRIPTION = 1000;
@@ -88,9 +88,7 @@ export function rulesToDefinitions<T>(rules: Rule<T>[] | undefined): RuleDefinit
     }
     const fields = resolveRuleFields(rule);
     if (fields && fields.length > 0) {
-      def.fields = fields
-        .slice(0, MAX_RULE_FIELDS)
-        .map((f) => clamp(f, MAX_RULE_FIELD));
+      def.fields = fields.slice(0, MAX_RULE_FIELDS).map((f) => clamp(f, MAX_RULE_FIELD));
     }
     return def;
   });

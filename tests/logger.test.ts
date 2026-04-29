@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import {
-  createConsoleLogger,
-  defineContract,
-  enforce,
-  type ContractLogger,
-} from "../src/index.js";
+import { createConsoleLogger, defineContract, enforce, type ContractLogger } from "../src/index.js";
 
 const Schema = z.object({
   sentiment: z.enum(["positive", "negative", "neutral"]),
@@ -19,11 +14,9 @@ describe("logger", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     try {
-      const result = await enforce(
-        Schema,
-        async () => '{"sentiment":"neutral","confidence":0.4}',
-        { name: NAME },
-      );
+      const result = await enforce(Schema, async () => '{"sentiment":"neutral","confidence":0.4}', {
+        name: NAME,
+      });
 
       expect(result.ok).toBe(true);
       expect(logSpy).not.toHaveBeenCalled();
@@ -98,14 +91,10 @@ describe("logger", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     try {
-      const result = await enforce(
-        Schema,
-        async () => '{"sentiment":"neutral","confidence":0.5}',
-        {
-          name: NAME,
-          debug: true,
-        },
-      );
+      const result = await enforce(Schema, async () => '{"sentiment":"neutral","confidence":0.5}', {
+        name: NAME,
+        debug: true,
+      });
 
       expect(result.ok).toBe(true);
       expect(logSpy).toHaveBeenCalled();
@@ -155,33 +144,28 @@ describe("logger", () => {
     };
 
     // No rules defined — rulesCount should be 0.
-    await enforce(
-      Schema,
-      async () => '{"sentiment":"neutral","confidence":0.5}',
-      { name: NAME, logger },
-    );
+    await enforce(Schema, async () => '{"sentiment":"neutral","confidence":0.5}', {
+      name: NAME,
+      logger,
+    });
     expect(starts[0]?.rulesCount).toBe(0);
 
     // Two rules defined — rulesCount should be 2.
     starts.length = 0;
-    await enforce(
-      Schema,
-      async () => '{"sentiment":"positive","confidence":0.9}',
-      {
-        name: NAME,
-        logger,
-        rules: [
-          {
-            name: "confidence_threshold",
-            check: (d) => d.confidence >= 0.5 || "confidence too low",
-          },
-          {
-            name: "sentiment_not_neutral",
-            check: (d) => d.sentiment !== "neutral" || "neutral not allowed",
-          },
-        ],
-      },
-    );
+    await enforce(Schema, async () => '{"sentiment":"positive","confidence":0.9}', {
+      name: NAME,
+      logger,
+      rules: [
+        {
+          name: "confidence_threshold",
+          check: (d) => d.confidence >= 0.5 || "confidence too low",
+        },
+        {
+          name: "sentiment_not_neutral",
+          check: (d) => d.sentiment !== "neutral" || "neutral not allowed",
+        },
+      ],
+    });
     expect(starts[0]?.rulesCount).toBe(2);
   });
 
@@ -201,12 +185,95 @@ describe("logger", () => {
     });
 
     await contract.accept(async () => '{"sentiment":"positive","confidence":0.9}');
-    await contract.accept(
-      async () => '{"sentiment":"negative","confidence":0.8}',
-      { model: "claude-haiku-4-5" },
-    );
+    await contract.accept(async () => '{"sentiment":"negative","confidence":0.8}', {
+      model: "claude-haiku-4-5",
+    });
 
     expect(starts).toEqual(["gpt-4o", "claude-haiku-4-5"]);
+  });
+
+  it("includes one stable runHandle on every hook for a run", async () => {
+    const handles: string[] = [];
+    const logger: ContractLogger = {
+      onRunStart(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onAttemptStart(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onRawOutput(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onCleanedOutput(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onVerifySuccess(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onRunSuccess(ctx) {
+        handles.push(ctx.runHandle);
+      },
+    };
+
+    const result = await enforce(Schema, async () => '{"sentiment":"positive","confidence":0.95}', {
+      name: NAME,
+      logger,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(handles.length).toBeGreaterThan(0);
+    expect(new Set(handles).size).toBe(1);
+    expect(handles[0]).toMatch(/^rh_/);
+  });
+
+  it("includes the runHandle on terminal failure hooks", async () => {
+    const handles: string[] = [];
+    const logger: ContractLogger = {
+      onRunStart(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onVerifyFailure(ctx) {
+        handles.push(ctx.runHandle);
+      },
+      onRunFailure(ctx) {
+        handles.push(ctx.runHandle);
+      },
+    };
+
+    const result = await enforce(Schema, async () => '{"sentiment":"positive","confidence":2}', {
+      name: NAME,
+      retry: { maxAttempts: 1 },
+      logger,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(handles).toHaveLength(3);
+    expect(new Set(handles).size).toBe(1);
+    expect(handles[0]).toMatch(/^rh_/);
+  });
+
+  it("creates distinct runHandles for concurrent accepts of the same contract", async () => {
+    const starts: string[] = [];
+    const logger: ContractLogger = {
+      onRunStart(ctx) {
+        starts.push(ctx.runHandle);
+      },
+    };
+    const contract = defineContract({
+      name: "shared-contract",
+      schema: Schema,
+      logger,
+    });
+
+    const [first, second] = await Promise.all([
+      contract.accept(async () => '{"sentiment":"positive","confidence":0.91}'),
+      contract.accept(async () => '{"sentiment":"neutral","confidence":0.72}'),
+    ]);
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(starts).toHaveLength(2);
+    expect(new Set(starts).size).toBe(2);
   });
 
   it("logger errors do not break run behavior", async () => {
@@ -219,14 +286,10 @@ describe("logger", () => {
       },
     };
 
-    const result = await enforce(
-      Schema,
-      async () => '{"sentiment":"neutral","confidence":0.66}',
-      {
-        name: NAME,
-        logger,
-      },
-    );
+    const result = await enforce(Schema, async () => '{"sentiment":"neutral","confidence":0.66}', {
+      name: NAME,
+      logger,
+    });
 
     expect(result.ok).toBe(true);
   });

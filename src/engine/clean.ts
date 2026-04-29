@@ -30,8 +30,7 @@ function stripFences(text: string): string {
     return match[1].trim();
   }
 
-  const innerFencePattern =
-    /```(?:json|JSON|js|javascript)?\s*\n?([\s\S]*?)\n?\s*```/;
+  const innerFencePattern = /```(?:json|JSON|js|javascript)?\s*\n?([\s\S]*?)\n?\s*```/;
   const innerMatch = text.match(innerFencePattern);
   if (innerMatch) {
     return innerMatch[1].trim();
