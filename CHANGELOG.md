@@ -1,5 +1,12 @@
 # @withboundary/contract
 
+## 1.5.1
+
+### Patch Changes
+
+- 3c253a2: Add manual release workflow dispatch so maintainers can run the release pipeline on demand.
+- Complete `runHandle` coverage on terminal verification-failure logger contexts. `onRunFailure` now receives the same per-call handle as the preceding run, attempt, and verification hooks when a run stops after a validation or rule failure.
+
 ## 1.5.0
 
 ### Minor Changes
@@ -24,13 +31,16 @@
 
   ```ts
   // Before: you had to specify fields to get per-field attribution
-  rules: [{ name: "threshold", fields: ["score"], check: (d) => d.score >= 90 }];
+  rules: [
+    { name: "threshold", fields: ["score"], check: (d) => d.score >= 90 },
+  ];
 
   // Now: inference covers the simple cases — same attribution, no boilerplate
   rules: [{ name: "threshold", check: (d) => d.score >= 90 }];
   ```
 
   ### What gets inferred
+
   - Direct accesses: `(d) => d.score >= 0` → `["score"]`
   - Compound: `(d) => d.score > 0 && d.tier !== "cold"` → `["score", "tier"]`
   - Optional chaining: `(d) => d?.maybe === 1` → `["maybe"]`
@@ -38,16 +48,19 @@
   - Nested access recorded at the top-level field: `(d) => d.items.length > 0` → `["items"]`
 
   ### What still needs explicit `fields`
+
   - Helper delegation: `(d) => validate(d)` — the helper is opaque to the parser
   - Aliasing: `(d) => { const x = d; return x.y; }` — alias tracking not implemented
   - Minified bundles where the param identifier is mangled (rare in Node)
 
   ### Backwards compatibility
+
   - `Rule.fields` stays optional and unchanged in the type. Explicit values always win over inference.
   - Consumers that omitted `fields` previously got no attribution; now they get inferred attribution when possible. This is additive data on `RuleDefinition.fields` and `RuleIssue.rule.fields` — no wire-format change.
   - Inference results are cached per `check` function via a `WeakMap` so the hot path (verify per attempt) doesn't re-parse.
 
 - 4a73021: Fix build + lint on TypeScript 6.
+
   - `tsconfig.json`: add `"ignoreDeprecations": "6.0"` to silence `TS5101` for the implicit `baseUrl` that tsup's dts builder emits internally. Will revisit before TS 7.
   - `devDependencies`: add `@types/node@^22` so the `examples/live-*.ts` scripts (which read `process.env.*`) pass `tsc --noEmit`. TS 5 was resolving `process` transitively through another dev dep; TS 6's stricter type resolution no longer does.
 
@@ -60,6 +73,7 @@
 - af935fb: Support both Zod v3 and Zod v4 schemas.
 
   `defineContract({ schema })` now accepts schemas from either zod major. Previously the package hard-pinned `zod@^3.23.0`; consumers who upgraded their own `zod` to v4 saw type errors because v3 and v4 `ZodType` are not cross-assignable.
+
   - **peerDependency**: `"zod": "^3.25.0 || ^4.0.0"` (moved out of `dependencies`). Users on zod `<3.25` should bump to `3.25+` to get the subpath exports this package uses internally (`zod/v3` and `zod/v4/core`).
   - Internal schema introspection (used by `instructions()` and `select()`) is centralized in a new `zodCompat` adapter and dispatches on a property-based runtime probe (`"_zod" in schema`), so `instanceof`-based class identity across duplicated `node_modules` copies is no longer a concern.
   - New public type `ContractSchema<T> = z3.ZodType<T> | z4.$ZodType<T>` replaces the internal `ZodType<T>` in `ContractConfig`, `enforce`, and `runContract` signatures. User code that passes `z.object(...)` inline continues to work unchanged.
@@ -107,6 +121,7 @@
 ### Minor Changes
 
 - 08c803c: Require a `name` on every contract and propagate it through every logger hook.
+
   - `defineContract({ name, schema, ... })` now requires `name: string`. The runtime throws `TypeError` if it's missing or blank.
   - `enforce(schema, run, options)` now requires `options.name`.
   - Every `ContractLogger<T>` hook context carries `contractName: string`, so loggers can attribute every event to the right contract without holding a separate reference. This is what `@withboundary/sdk` reads to populate `BoundaryLogEvent.contractName`.
