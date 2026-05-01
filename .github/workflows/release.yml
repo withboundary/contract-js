@@ -16,6 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       # Node 24 ships with npm 11.x, which is required for OIDC trusted
       # publishing (needs npm >= 11.5.1). Node 22 bundles npm 10.x which
       # silently ignores OIDC env vars and falls back to anonymous publish
@@ -24,21 +26,22 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      - run: npm run typecheck
+      - run: pnpm run typecheck
 
-      - run: npm run lint
+      - run: pnpm run lint
 
-      - run: npm run format:check
+      - run: pnpm run format:check
 
-      - run: npm test
+      - run: pnpm test
 
-      - run: npm run build
+      - run: pnpm run build
 
       - uses: changesets/action@v1
         with:
-          publish: npm run release
+          publish: pnpm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
