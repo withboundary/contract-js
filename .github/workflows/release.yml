@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       # Node 24 ships with npm 11.x, which is required for OIDC trusted
       # publishing (needs npm >= 11.5.1). Node 22 bundles npm 10.x which
